@@ -1174,6 +1174,16 @@ def cmd_once(config_path: Path, dry_run: bool = False) -> int:
 # ---------------------------------------------------------------------------
 
 
+def parse_launchctl_print(text: str) -> Dict[str, Any]:
+    state_match = re.search(r"^\s*state = (.+?)\s*$", text, re.MULTILINE)
+    pid_match = re.search(r"^\s*pid = (\d+)", text, re.MULTILINE)
+    return {
+        "loaded": True,
+        "state": state_match.group(1) if state_match else None,
+        "pid": int(pid_match.group(1)) if pid_match else None,
+    }
+
+
 def launchd_status() -> Dict[str, Any]:
     uid = os.getuid()
     proc = subprocess.run(
@@ -1184,14 +1194,7 @@ def launchd_status() -> Dict[str, Any]:
     )
     if proc.returncode != 0:
         return {"loaded": False}
-    text = proc.stdout
-    state_match = re.search(r"^\s*state = (\S+)", text, re.MULTILINE)
-    pid_match = re.search(r"^\s*pid = (\d+)", text, re.MULTILINE)
-    return {
-        "loaded": True,
-        "state": state_match.group(1) if state_match else None,
-        "pid": int(pid_match.group(1)) if pid_match else None,
-    }
+    return parse_launchctl_print(proc.stdout)
 
 
 def _status_line_for_metric(name: str, state: Dict[str, Any], config: Dict[str, Any]) -> str:

@@ -351,6 +351,26 @@ class ConfigAndStateTests(unittest.TestCase):
         self.assertEqual(plist["EnvironmentVariables"]["HOME"], str(Path.home()))
         self.assertIn("PATH", plist["EnvironmentVariables"])
 
+    def test_parse_launchctl_state_with_spaces(self):
+        result = mm.parse_launchctl_print(
+            "gui/501/local.macmini-resource-monitor = {\n"
+            "\tactive count = 0\n"
+            "\tstate = not running\n"
+            "}\n"
+        )
+        self.assertTrue(result["loaded"])
+        self.assertEqual(result["state"], "not running")
+        self.assertIsNone(result["pid"])
+
+        result = mm.parse_launchctl_print(
+            "gui/501/local.macmini-resource-monitor = {\n"
+            "\tstate = running\n"
+            "\tpid = 12345\n"
+            "}\n"
+        )
+        self.assertEqual(result["state"], "running")
+        self.assertEqual(result["pid"], 12345)
+
 
 class NotificationTransportTests(unittest.TestCase):
     def test_webhook_payload_and_success(self):
