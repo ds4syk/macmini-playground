@@ -5,6 +5,7 @@
 import copy
 import json
 import os
+import shutil
 import sys
 import tempfile
 import threading
@@ -350,6 +351,14 @@ class ConfigAndStateTests(unittest.TestCase):
         self.assertEqual(plist["StartInterval"], 60)
         self.assertEqual(plist["EnvironmentVariables"]["HOME"], str(Path.home()))
         self.assertIn("PATH", plist["EnvironmentVariables"])
+
+    def test_launchd_path_includes_node(self):
+        entries = mm.build_path_env().split(":")
+        self.assertIn("/opt/homebrew/bin", entries)
+        self.assertIn(str(Path("~/.local/bin").expanduser()), entries)
+        node = shutil.which("node")
+        if node:
+            self.assertIn(str(Path(node).resolve().parent), entries)
 
     def test_parse_launchctl_state_with_spaces(self):
         result = mm.parse_launchctl_print(

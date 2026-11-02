@@ -1334,21 +1334,32 @@ def _launchctl(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(["launchctl", *args], capture_output=True, text=True, check=False)
 
 
+def build_path_env() -> str:
+    """launchd 的 PATH 很精简；lark-cli 的 shebang 需要 node。"""
+    entries = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+        str(Path("~/.local/bin").expanduser()),
+    ]
+    node = shutil.which("node")
+    if node:
+        node_dir = str(Path(node).resolve().parent)
+        if node_dir not in entries:
+            entries.insert(0, node_dir)
+    return ":".join(entries)
+
+
 def build_plist(
     script_path: Path,
     config_path: Path,
     config: Dict[str, Any],
 ) -> Dict[str, Any]:
     log_dir = DEFAULT_LOG_DIR.expanduser()
-    path_env = ":".join(
-        [
-            "/usr/bin",
-            "/bin",
-            "/usr/sbin",
-            "/sbin",
-            str(Path("~/.local/bin").expanduser()),
-        ]
-    )
+    path_env = build_path_env()
     return {
         "Label": LAUNCHD_LABEL,
         "ProgramArguments": [
