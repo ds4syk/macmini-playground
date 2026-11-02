@@ -1285,7 +1285,7 @@ def cmd_status(config_path: Path, as_json: bool = False, sample: bool = False) -
     if launchd.get("loaded"):
         extra = f"，pid={launchd['pid']}" if launchd.get("pid") else ""
         display = {
-            "not running": "空闲（等待下次采样）",
+            "not running": "空闲，等待下次采样",
             "running": "运行中",
             "spawn scheduled": "已排程",
         }.get(launchd.get("state"), launchd.get("state"))
