@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>local.dsh-weekly-brief</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PYTHON__</string>
+		<string>__DEST__/weekly_brief.py</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__DEST__</string>
+	<key>RunAtLoad</key>
+	<false/>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key>
+		<integer>0</integer>
+		<key>Hour</key>
+		<integer>20</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>HOME</key>
+		<string>__HOME__</string>
+		<key>DSH_WEEKLY_BRIEF_CHAT</key>
+		<string>__CHAT__</string>
+		<key>GH_CONFIG_DIR</key>
+		<string>__HOME__/.config/gh-agent</string>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__DEST__/logs/weekly-brief.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__DEST__/logs/weekly-brief.err.log</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>LowPriorityIO</key>
+	<true/>
+</dict>
+</plist>

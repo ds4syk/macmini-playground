@@ -1,0 +1,91 @@
+# DSH 周报（周日 20:00 飞书卡片）
+
+每周日 20:00 由 launchd 运行 `weekly_brief.py`，把本周的工作、token 用量（含任务占比饼图）
+和下周重点渲染成一张 1241×1754 的 PNG 卡片，用 `gpt`（dsh-superagent）机器人发到部署时指定的飞书群。
+
+所有数据都在本机读取，不调用模型：
+
+| 内容 | 来源 |
+| --- | --- |
+| Token 用量 / 模型请求 / 会话数 / 缓存命中 | `~/.dsh/sessions/*/*/session.v4.jsonl.zstd` 里每条 `assistant/message` 的 `usage`（provider 计费口径） |
+| 任务 Token 占比饼图 | 按 session 目录名 `worker-<ticketId>` 归因到对应工单；个人会话与编排会话归入「非任务会话」 |
+| 本周重点 / 风险 / 下周重点 | `~/.dsh/state/superagent/orchestrator.sqlite` 中本周的工单、assignment 状态与 worker report |
+| PR 是否待合并 | `gh pr view <url>` / `gh pr list -R ds4syk/macmini-playground --state open`，网络失败时只影响 PR 行 |
+
+口径：
+
+- 总 token = 未缓存输入 + 输出 + 缓存读取 + 缓存写入。
+- 缓存命中 = 缓存读取 ÷（缓存读取 + 未缓存输入）。
+- 「本周」按 `Asia/Shanghai` 时区，默认从周一 00:00 到运行时刻；`--start` / `--end` 可覆盖。
+- 饼图：显示 token 最多的 4 个任务，其余任务合并为「其他任务」，个人/编排会话为「非任务会话」；
+  圆心是本周期内所有任务 token 占总 token 的比例。
+- 数字使用「万 / 亿」，与群里此前的卡片一致。
+
+## 安装（一次性）
+
+```bash
+./scripts/weekly-brief/install.sh --chat oc_xxx   # 首次安装：指定目标群
+./scripts/weekly-brief/install.sh --test          # 安装后再渲染一张不发送的卡片
+```
+
+群 id 只写入 `~/datas/dsh-weekly-brief/config.env` 与 LaunchAgent，不提交到仓库；
+之后不带 `--chat` 重跑会沿用该文件。可以用 `--chat` 换群。
+
+安装后：
+
+- LaunchAgent：`~/Library/LaunchAgents/local.dsh-weekly-brief.plist`（`Weekday` 0 = 周日，20:00）
+- 程序与产出：`~/datas/dsh-weekly-brief/`（`out/` 保存最近生成的卡片）
+- 日志：`~/datas/dsh-weekly-brief/logs/weekly-brief.{out,err}.log`
+
+卸载：
+
+```bash
+./scripts/weekly-brief/install.sh --uninstall
+```
+
+## 手动运行
+
+```bash
+# 生成卡片但不发送（默认本周）
+python3 scripts/weekly-brief/weekly_brief.py --no-post
+
+# 发一版预览（卡片带「预览版」标记）
+python3 scripts/weekly-brief/weekly_brief.py --preview
+
+# 指定周区间（补跑/测试）
+python3 scripts/weekly-brief/weekly_brief.py --start 2026-11-09 --end 2026-11-11T23:30 --no-post
+
+# 真正发到群里
+python3 scripts/weekly-brief/weekly_brief.py
+```
+
+常用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `--start` / `--end` | 统计区间，`YYYY-MM-DD` 或 ISO 时间；默认本周一 00:00 → 现在 |
+| `--preview` | 卡片加「预览版」标记 |
+| `--chat oc_xxx` | 发送目标，部署时写入 LaunchAgent 的 `DSH_WEEKLY_BRIEF_CHAT` |
+| `--repo owner/name` | 用于查询待合并 PR 的仓库，默认 `ds4syk/macmini-playground` |
+| `--no-post` / `--dry-run` | 只渲染，不发送 |
+| `--demo` | 用示例数据渲染，用于检查版式（卡片会标注「示例数据」） |
+
+## 结构
+
+```
+weekly_brief.py                 # 数据汇总 + HTML 排版 + Chromium 截图 + 飞书发送
+install.sh                      # 安装/卸载 LaunchAgent
+local.dsh-weekly-brief.plist    # LaunchAgent 模板（install.sh 填入绝对路径）
+example-brief.png               # 示例卡片（示例数据）
+```
+
+渲染使用 Playwright 缓存里的 `chrome-headless-shell`（`~/Library/Caches/ms-playwright/...`），
+找不到浏览器时自动降级为同内容的 Markdown 文本消息；`zstd` 用于解压 DSH 会话日志。
+
+## 注意
+
+- 卡片内容来自本机工单与会话统计，可能包含你其他飞书会话里的任务标题；请只把本仓库/PR
+  用于代码评审，不要把实际卡片截图贴到公开位置。
+- 运行是幂等的：同一时刻只会有一个实例（`~/datas/dsh-weekly-brief/weekly-brief.lock`）。
+- 如果周日 20:00 机器在睡眠，launchd 会在唤醒后补一次。
+- 修改脚本后重新执行 `install.sh` 才会更新 `~/datas` 下的副本。
