@@ -71,6 +71,14 @@ python3 -m paper_trader.runner status
 | 模型调用失败 | `decisions.error` 非空时组合保持持仓；查看 runner 输出与 provider 状态 |
 | 行情失败 | 腾讯接口有频控/反爬；本地缓存仍可用于回放，稍后重试 `fetch` |
 
+## 自训模型家族
+
+- 数据源：`~/labs/VLA/Share/v2/local_data/`（`panel.npz`、`metadata.json`、五条路线的 `*_ensemble.npz` 分数矩阵；GDN 无 ensemble，使用三个种子均值）。
+- 重建：`python3 -m paper_trader.local_models` → `data/local_family.json`；再 `python3 -m paper_trader.runner export`。
+- 当前分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据），权益估值到 2026-11-09；要更新到更晚日期，需要在 lab 用 `latest_*.pt` 对新数据推理并导出新的分数矩阵。
+- 自训模型不需要 torch / pandas；系统 Python + numpy 即可。
+- 费用口径与 LLM 家族不同（0.10%/0.20% vs 万 2.5/万 5），不要跨家族直接比收益。
+
 ## 数据与密钥
 
 - SQLite：`data/trader.db`（不入 git）

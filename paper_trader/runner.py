@@ -215,7 +215,8 @@ def cmd_replay(args) -> None:
     replay(conn, args.start, args.end)
     path = config.WEB_DIR / "data.json"
     payload = export.write_export(conn, path)
-    log("已生成 %s（%d 个组合，%d 个交易日）" % (path, len(payload["portfolios"]), payload["trade_days"]))
+    llm = payload["families"]["llm"]
+    log("已生成 %s（LLM %d 个组合，%d 个交易日）" % (path, len(llm["portfolios"]), llm["trade_days"]))
 
 
 def cmd_daily(args) -> None:
@@ -224,14 +225,15 @@ def cmd_daily(args) -> None:
     daily(conn, force=args.force)
     path = config.WEB_DIR / "data.json"
     payload = export.write_export(conn, path)
-    log("已更新 %s（截至 %s）" % (path, payload["as_of"]))
+    log("已更新 %s（截至 %s）" % (path, payload["families"]["llm"]["as_of"]))
 
 
 def cmd_export(args) -> None:
     conn = store.connect()
     path = pathlib.Path(args.out) if args.out else config.WEB_DIR / "data.json"
     payload = export.write_export(conn, path)
-    log("已生成 %s（截至 %s，%d 个组合）" % (path, payload["as_of"], len(payload["portfolios"])))
+    llm = payload["families"]["llm"]
+    log("已生成 %s（LLM 截至 %s，%d 个组合）" % (path, llm["as_of"], len(llm["portfolios"])))
 
 
 def cmd_serve(args) -> None:

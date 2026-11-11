@@ -317,6 +317,8 @@ def build_payload(conn: sqlite3.Connection) -> dict:
     }
 
     return {
+        "family": "llm",
+        "label": "LLM 模型（保留）",
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "as_of": as_of,
         "trade_days": len(dates),
@@ -340,15 +342,40 @@ def build_payload(conn: sqlite3.Connection) -> dict:
         "universe": universe,
         "meta": {
             "start": dates[0] if dates else "",
+            "end": as_of,
             "capital": config.CAPITALS,
             "capital_labels": {str(k): v for k, v in config.CAPITAL_LABELS.items()},
+            "universe_title": "候选池行情",
+            "method": "日线 · 30 只样本池 · 收盘决策次日开盘成交",
+            "fee_note": "LLM 口径：佣金万 2.5（最低 5 元）+ 卖出印花税万 5 + 过户费万 0.1",
+            "provenance": {
+                "train": "商用 LLM（预训练截止未知）",
+                "validation": "—",
+                "test": "回放 2026-09-01 至 2026-11-11",
+                "leakage": "商用 LLM 的预训练知识可能覆盖回放区间，存在测试集泄漏；仅用于链路演示，不能当作干净的超额收益证据。",
+            },
             "disclaimer": "模拟盘，仅供策略研究，不构成投资建议。数据来自腾讯行情，按前复权日线回放。",
         },
     }
 
 
 def write_export(conn: sqlite3.Connection, path) -> dict:
-    payload = build_payload(conn)
+    from datetime import datetime as _dt
+
+    llm = build_payload(conn)
+    now = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    llm["generated_at"] = now
+    families = {"llm": llm}
+    local_path = config.DATA_DIR / "local_family.json"
+    if local_path.exists():
+        local = json.loads(local_path.read_text(encoding="utf-8"))
+        local["generated_at"] = now
+        families = {"local": local, "llm": llm}
+    payload = {
+        "generated_at": now,
+        "default_family": "local" if "local" in families else "llm",
+        "families": families,
+    }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return payload

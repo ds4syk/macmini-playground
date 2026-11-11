@@ -30,6 +30,8 @@
     models: new Set(),
     selected: null,
     data: null,
+    families: null,
+    family: "llm",
     equityChart: null,
     candleChart: null,
     allocChart: null,
@@ -56,10 +58,18 @@
 
   function renderHeader() {
     const d = state.data;
+    const p = d.meta.provenance || {};
     $("#as-of").textContent = d.as_of || "--";
     $("#updated-at").textContent = (d.generated_at || "").slice(5, 16);
+    $("#status-label").textContent = d.family === "local" ? "自训模型 · 5日调仓" : "LLM 模型 · 日线回放";
     $("#footer-sub").textContent =
       `生成于 ${d.generated_at} · ${d.models.length} 个模型 · ${d.portfolios.length} 个组合 · ${d.trade_days} 个交易日 · 起始 ${d.meta.start}`;
+    $("#family-note-footer").textContent =
+      `${d.meta.method || ""} ｜ ${d.meta.fee_note || ""} ｜ ${p.leakage || ""}`;
+    const note = d.family === "local"
+      ? `<b>${esc(d.meta.last_signal || d.meta.end)} 最后一次信号</b> · 训练 ${esc(p.train)} · 验证 ${esc(p.validation)} · 测试 ${esc(p.test)} ｜ ${esc(p.leakage)}`
+      : `<b>${esc(d.meta.method || "")}</b> ｜ 回放 ${esc(p.test || "")} ｜ ${esc(p.leakage)}`;
+    $("#family-note").innerHTML = note;
   }
 
   function renderTicker() {
@@ -108,7 +118,7 @@
       <div class="kpi">
         <div class="kpi-label">运行交易日</div>
         <div class="kpi-value">${d.trade_days}<small>天</small></div>
-        <div class="kpi-sub">${d.models.length} 个模型 × 4 档本金 · 日线回放</div>
+        <div class="kpi-sub">${d.models.length} 个模型 × 4 档本金 · ${d.family === "local" ? "5 日调仓" : "日线回放"}</div>
       </div>`;
   }
 
@@ -157,9 +167,10 @@
       el.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
     });
     const cap = state.data.meta.capital_labels[String(state.capital)];
+    const method = state.data.family === "local" ? "5 日调仓" : "09/01 起回放";
     $("#chart-sub").textContent = state.mode === "ret"
-      ? `五个模型在 ${cap} 本金下的收益率对比 · 09/01 起回放（点击图例可隐藏）`
-      : `五个模型在 ${cap} 本金下的账户净值对比 · 09/01 起回放`;
+      ? `${state.data.label} · ${cap} 本金收益率对比 · ${method}（点击图例可隐藏）`
+      : `${state.data.label} · ${cap} 本金账户净值对比 · ${method}`;
   }
 
   function renderModeSegments() {
@@ -293,19 +304,23 @@
           <div class="num ${signClass(pct)}"><b>${fmtPct(pct)}</b><div class="mini-bar"><i style="width:${barWidth}%;background:${color}"></i></div></div>
           <div class="num">${fmtPct(best ? best.ret_pct : 0)}<div style="font-size:10px;color:#8c98a5">${best ? esc(best.capital_label) : "-"}</div></div>
           <div class="num">${totalTrades}<span style="font-size:10px;color:#8c98a5"> 笔</span></div>
-          <div class="num">${Math.round((m.confidence || 0) * 100)}<span style="font-size:10px;color:#8c98a5">%</span></div>
+          <div class="num">${state.data.family === "local" ? Number(m.ic || 0).toFixed(3) : Math.round((m.confidence || 0) * 100) + "<span style=\"font-size:10px;color:#8c98a5\">%</span>"}</div>
           <div class="num" style="font-size:10px;color:#8c98a5">${esc((m.decision_date || "").slice(5))}</div>
         </div>`;
     }).join("");
+    const metricLabel = state.data.family === "local" ? "Rank IC" : "置信度";
     $("#model-table").innerHTML = `
-      <div class="model-row head"><div>模型</div><div class="num">四档平均</div><div class="num">最佳本金</div><div class="num">交易</div><div class="num">置信度</div><div class="num">决策日</div></div>
+      <div class="model-row head"><div>模型</div><div class="num">四档平均</div><div class="num">最佳本金</div><div class="num">交易</div><div class="num">${metricLabel}</div><div class="num">决策日</div></div>
       ${rows}`;
   }
 
   function renderDecisions() {
     const models = state.data.models;
+    const local = state.data.family === "local";
     const latestDate = models.map((m) => m.decision_date).filter(Boolean).sort().pop() || "";
-    $("#decision-sub").textContent = `${latestDate} 收盘后生成 · 下一交易日开盘执行`;
+    $("#decision-sub").textContent = local
+      ? `最后一次信号 ${state.data.meta.last_signal} · 权益估值至 ${state.data.as_of}`
+      : `${latestDate} 收盘后生成 · 下一交易日开盘执行`;
     $("#decisions").innerHTML = models.map((m) => {
       const p = portfolioById(`${m.id}__100000`) || state.data.portfolios.find((x) => x.model_id === m.id);
       const decision = p ? p.decision : null;
@@ -317,7 +332,7 @@
         <div class="decision-card">
           <div class="decision-top">
             <i class="model-dot" style="background:${m.color}"></i><b>${esc(m.short)}</b>
-            <span class="conf">置信度 ${Math.round((decision ? decision.confidence : 0) * 100)}%</span>
+            <span class="conf">${local ? "Rank IC " + Number(m.ic || 0).toFixed(3) : "置信度 " + Math.round((decision ? decision.confidence : 0) * 100) + "%"}</span>
           </div>
           <div class="decision-view">${esc(view)}</div>
           <div class="chips">${chips || '<span class="chip">空仓观望</span>'}</div>
@@ -373,7 +388,7 @@
       const targets = decision.targets.map((t) => `
         <div class="target"><b>${esc(t.name)}</b><em>${esc(t.reason || "")}</em><span>${Number(t.weight).toFixed(0)}%</span></div>`).join("");
       $("#detail-decision").innerHTML = `
-        <div class="meta">${esc(decision.date)} 收盘 · 置信度 ${Math.round((decision.confidence || 0) * 100)}%</div>
+        <div class="meta">${esc(decision.date)} ${state.data.family === "local" ? "最后一次信号" : "收盘"} · ${state.data.family === "local" ? "Rank IC " + Number((state.data.models.find((x) => x.id === p.model_id) || {}).ic || 0).toFixed(3) : "置信度 " + Math.round((decision.confidence || 0) * 100) + "%"}</div>
         <div class="view">${esc(decision.market_view || "—")}</div>
         ${decision.error ? `<div class="view" style="color:#b08a00">校验提示：${esc(decision.error)}</div>` : ""}
         ${targets || '<div class="empty">空仓观望</div>'}`;
@@ -468,14 +483,16 @@
   }
 
   function renderUniverse() {
-    const items = [...state.data.universe].sort((a, b) => b.chg1 - a.chg1);
+    const local = state.data.family === "local";
+    const items = local ? [...state.data.universe] : [...state.data.universe].sort((a, b) => b.chg1 - a.chg1);
+    $("#universe-title").textContent = state.data.meta.universe_title || "候选池行情";
     $("#breadth").textContent = `涨 ${state.data.breadth.up} · 跌 ${state.data.breadth.down}`;
     $("#universe").innerHTML = items.map((u) => {
       const cls = signClass(u.chg1);
       const color = u.chg1 >= 0 ? COLORS.up : COLORS.down;
       return `
-        <div class="uni" title="${esc(u.name)} · 5日 ${fmtPct(u.chg5)} · 20日 ${fmtPct(u.chg20)}">
-          <div class="uni-name"><b>${esc(u.name)}</b><span>${esc(u.sector)}</span></div>
+        <div class="uni" title="${esc(u.name)} · 5日 ${fmtPct(u.chg5)} · 20日 ${fmtPct(u.chg20)}${u.score != null ? " · 分数 " + Number(u.score).toFixed(2) : ""}">
+          <div class="uni-name"><b>${esc(u.name)}</b><span>${esc(u.sector)}${u.score != null ? " · " + Number(u.score).toFixed(2) : ""}</span></div>
           ${sparkline(u.spark, color, 46, 18).replace("tick-spark", "uni-spark")}
           <span class="uni-chg ${cls}">${fmtPct(u.chg1, 1)}</span>
         </div>`;
@@ -500,19 +517,27 @@
     state.allocChart = echarts.init($("#alloc-chart"), null, { renderer: "canvas" });
   }
 
-  async function boot() {
-    try {
-      const response = await fetch("./data.json", { cache: "no-store" });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      state.data = await response.json();
-    } catch (error) {
-      $("#kpis").innerHTML = `<div class="card" style="grid-column:1/-1;padding:24px">数据加载失败：${esc(error.message)}。请先运行 <code>python3 -m paper_trader.runner export</code>。</div>`;
-      return;
-    }
-    state.data.models.forEach((m) => state.models.add(m.id));
+  function renderFamilyTabs() {
+    const keys = Object.keys(state.families);
+    const order = ["local", "llm"].filter((key) => keys.includes(key));
+    for (const key of keys) if (!order.includes(key)) order.push(key);
+    $("#family-tabs").innerHTML = order.map((key) => {
+      const family = state.families[key];
+      return `<button type="button" class="family-tab ${key === state.family ? "active" : ""}" data-family="${key}" role="tab" aria-selected="${key === state.family}">${esc(family.label || key)}</button>`;
+    }).join("");
+    $("#family-tabs").querySelectorAll("[data-family]").forEach((btn) => {
+      btn.onclick = () => switchFamily(btn.dataset.family);
+    });
+  }
+
+  function choosePortfolio() {
     const best = [...state.data.portfolios].sort((a, b) => b.ret_pct - a.ret_pct)[0];
     state.selected = best || state.data.portfolios[0] || null;
+  }
 
+  function renderDashboard() {
+    state.models = new Set(state.data.models.map((m) => m.id));
+    choosePortfolio();
     renderHeader();
     renderTicker();
     renderKpis();
@@ -523,10 +548,37 @@
     renderModelTable();
     renderDecisions();
     renderUniverse();
-    initCharts();
     renderEquityChart();
     renderCandles();
     renderDetail();
+  }
+
+  function switchFamily(key) {
+    if (!state.families[key] || key === state.family) return;
+    state.family = key;
+    state.data = state.families[key];
+    state.capital = 100000;
+    state.mode = "ret";
+    renderFamilyTabs();
+    renderDashboard();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function boot() {
+    try {
+      const response = await fetch("./data.json", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      state.families = payload.families || { llm: payload };
+      state.family = payload.default_family && state.families[payload.default_family] ? payload.default_family : Object.keys(state.families)[0];
+      state.data = state.families[state.family];
+    } catch (error) {
+      $("#kpis").innerHTML = `<div class="card" style="grid-column:1/-1;padding:24px">数据加载失败：${esc(error.message)}。请先运行 <code>python3 -m paper_trader.runner export</code>。</div>`;
+      return;
+    }
+    initCharts();
+    renderFamilyTabs();
+    renderDashboard();
     bindResize();
   }
 

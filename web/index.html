@@ -18,13 +18,18 @@
     </div>
   </div>
   <div class="top-meta">
-    <span class="status-chip"><i></i>模拟盘运行中</span>
+    <span class="status-chip"><i></i><span id="status-label">模拟盘运行中</span></span>
     <span class="top-sep"></span>
     <span>交易日 <b id="as-of">--</b></span>
     <span class="top-sep"></span>
     <span>数据更新 <b id="updated-at">--</b></span>
   </div>
 </header>
+
+<div class="familybar">
+  <div class="family-tabs" id="family-tabs" role="tablist" aria-label="模型家族"></div>
+  <div class="family-note" id="family-note"></div>
+</div>
 
 <nav class="ticker" id="ticker" aria-label="主要指数"></nav>
 
@@ -138,7 +143,7 @@
     <div class="card">
       <div class="card-head">
         <div>
-          <h2>候选池行情</h2>
+          <h2 id="universe-title">候选池行情</h2>
           <p>30 只样本股 · 单位 %</p>
         </div>
         <span class="pill neutral" id="breadth">--</span>
@@ -149,6 +154,7 @@
 
   <footer>
     <p>模拟盘，仅供策略研究与模型对比，不构成任何投资建议。行情为腾讯行情前复权日线，成交按下一交易日开盘价回放，已计入佣金、印花税与过户费。</p>
+    <p class="footer-sub" id="family-note-footer">--</p>
     <p class="footer-sub" id="footer-sub">--</p>
   </footer>
 </main>
