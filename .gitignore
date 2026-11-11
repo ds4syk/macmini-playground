@@ -1,0 +1,7 @@
+data/
+dist/
+web/data.json
+__pycache__/
+*.pyc
+.env
+.DS_Store
