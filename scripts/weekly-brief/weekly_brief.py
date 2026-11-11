@@ -60,6 +60,71 @@ ZSTD = shutil.which("zstd") or "/opt/homebrew/bin/zstd"
 # Palette for the task-share donut: one hue per task, gray for the remainder.
 PIE_COLORS = ["#5b5bd6", "#f0a13a", "#2bb3a3", "#e46a76", "#8b8fc7", "#c3c6d4"]
 
+# DeepSeek official list prices in CNY per million tokens (peak rates,
+# checked against api-docs.deepseek.com 2026-10). Off-peak is half price.
+# Cache writes are billed as cache-miss input, as the official docs state.
+CNY_PEAK_PRICES = {
+    "deepseek-flash": {"cacheHit": 0.04, "cacheMiss": 2.0, "output": 8.0},
+    "deepseek-v4-pro": {"cacheHit": 0.30, "cacheMiss": 9.0, "output": 27.0},
+}
+MODEL_ALIASES = {
+    "deepseek-v4-flash": "deepseek-flash",
+    "deepseek-v4-flash-vision-exp": "deepseek-flash",
+}
+DEEPSEEK_PROVIDERS = ("deepseek-official", "deepseek-account")
+PEAK_WINDOWS = ((9 * 60, 12 * 60), (14 * 60, 18 * 60))
+# Chinese statutory holidays in 2026; an unknown year falls back to weekends only.
+BUILTIN_HOLIDAYS = {
+    "2026": (
+        "2026-01-01", "2026-01-02", "2026-01-03",
+        "2026-02-15", "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22", "2026-02-23",
+        "2026-04-04", "2026-04-05", "2026-04-06",
+        "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05",
+        "2026-06-19", "2026-06-20", "2026-06-21",
+        "2026-09-25", "2026-09-26", "2026-09-27",
+        "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07",
+    ),
+}
+
+
+def is_deepseek_provider(provider: str) -> bool:
+    return provider in DEEPSEEK_PROVIDERS or provider.lower().startswith("deepseek")
+
+
+def canonical_model(model: str) -> str:
+    return MODEL_ALIASES.get(model, model)
+
+
+def is_peak_time(moment: datetime) -> bool:
+    if moment.weekday() >= 5:
+        return False
+    if moment.strftime("%Y-%m-%d") in BUILTIN_HOLIDAYS.get(str(moment.year), ()):
+        return False
+    minutes = moment.hour * 60 + moment.minute
+    return any(start <= minutes < end for start, end in PEAK_WINDOWS)
+
+
+def request_cost_cny(usage: dict, prices: dict | None, peak: bool) -> float:
+    """One request's CNY cost; None prices mean an unpriced model."""
+    if not prices:
+        return 0.0
+    input_tokens = int(usage.get("inputTokens") or 0)
+    output_tokens = int(usage.get("outputTokens") or 0)
+    cache_read = int(usage.get("cacheReadTokens") or 0)
+    cache_write = int(usage.get("cacheWriteTokens") or 0)
+    factor = (1.0 if peak else 0.5) / 1_000_000
+    return (
+        (input_tokens + cache_write) * prices["cacheMiss"]
+        + cache_read * prices["cacheHit"]
+        + output_tokens * prices["output"]
+    ) * factor
+
+
+def fmt_cny(value: float) -> str:
+    if value >= 1000:
+        return f"¥{value:,.0f}"
+    return f"¥{value:,.2f}"
+
 
 # --------------------------------------------------------------------------
 # small helpers
@@ -175,12 +240,37 @@ class TaskShare:
     color: str
 
 
-def collect_usage(start: datetime, end: datetime) -> tuple[UsageStats, dict[str, int]]:
-    """Aggregate provider usage in the window and per session folder."""
+@dataclass
+class ModelUsage:
+    provider: str
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+    requests: int = 0
+    cost: float = 0.0
+    priced: bool = True
+
+    @property
+    def total(self) -> int:
+        return (
+            self.input_tokens
+            + self.output_tokens
+            + self.cache_read_tokens
+            + self.cache_write_tokens
+        )
+
+
+def collect_usage(
+    start: datetime, end: datetime
+) -> tuple[UsageStats, dict[str, int], dict[tuple[str, str], ModelUsage]]:
+    """Aggregate provider usage in the window, per session folder and per model."""
     stats = UsageStats()
     start_ms = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
     session_tokens: dict[str, int] = {}
+    model_usages: dict[tuple[str, str], ModelUsage] = {}
     sessions: set[str] = set()
     for path in glob.glob(str(DSH_SESSIONS / "*" / "*" / "session.v4.jsonl.zstd")):
         raw = subprocess.run([ZSTD, "-dc", path], capture_output=True, timeout=300)
@@ -213,8 +303,28 @@ def collect_usage(start: datetime, end: datetime) -> tuple[UsageStats, dict[str,
             session_tokens[session_id] = (
                 session_tokens.get(session_id, 0) + input_tokens + output_tokens + cache_read + cache_write
             )
+
+            source = ((event.get("data") or {}).get("message") or {}).get("source") or {}
+            provider = source.get("provider") or "unknown"
+            model = canonical_model(source.get("model") or "未知模型")
+            key = (provider, model)
+            record = model_usages.get(key)
+            if record is None:
+                record = ModelUsage(provider=provider, model=model)
+                model_usages[key] = record
+            record.requests += 1
+            record.input_tokens += input_tokens
+            record.output_tokens += output_tokens
+            record.cache_read_tokens += cache_read
+            record.cache_write_tokens += cache_write
+            prices = CNY_PEAK_PRICES.get(model) if is_deepseek_provider(provider) else None
+            if prices:
+                moment = datetime.fromtimestamp(timestamp / 1000, TZ)
+                record.cost += request_cost_cny(usage, prices, is_peak_time(moment))
+            else:
+                record.priced = False
     stats.sessions = len(sessions)
-    return stats, session_tokens
+    return stats, session_tokens, model_usages
 
 
 def attribute_task_shares(
@@ -497,6 +607,10 @@ def render_html(context: dict) -> str:
     demo: bool = context["demo"]
     preview: bool = context["preview"]
     subtitle: str = context["subtitle"]
+    models: list[ModelUsage] = context["models"]
+    cost_total: float = context["cost_total"]
+    cost_complete: bool = context["cost_complete"]
+    card_height: int = context.get("card_height", CARD_HEIGHT)
 
     total = stats.total or 1
     segments = [
@@ -516,12 +630,12 @@ def render_html(context: dict) -> str:
         for label, value, color in segments
     )
 
-    def kpi(value: str, label: str) -> str:
+    def kpi(value: str, label: str, font: int = 42) -> str:
         return (
             '<div style="flex:1;background:#fff;border:1px solid #e8e9f0;border-radius:20px;'
-            'padding:24px 24px 20px">'
-            f'<div style="font-size:46px;font-weight:800;letter-spacing:-1px;color:#17171d;line-height:1.1;white-space:nowrap">{value}</div>'
-            f'<div style="margin-top:9px;font-size:21px;color:#8a8d99">{label}</div>'
+            'padding:22px 22px 18px">'
+            f'<div style="font-size:{font}px;font-weight:800;letter-spacing:-1px;color:#17171d;line-height:1.1;white-space:nowrap">{value}</div>'
+            f'<div style="margin-top:9px;font-size:20px;color:#8a8d99">{label}</div>'
             "</div>"
         )
 
@@ -550,6 +664,33 @@ def render_html(context: dict) -> str:
         for share in shares
     )
     pie_css = donut_gradient(shares)
+
+    shown_models = models[:4]
+    model_rows = "".join(
+        '<div class="model-row">'
+        f'<span class="model-name">{html.escape(truncate(item.model, 22))}</span>'
+        f'<span>{fmt_tokens(item.total)}</span>'
+        f'<span>{item.requests}</span>'
+        f'<span class="model-cost">{"—" if not item.priced else fmt_cny(item.cost)}</span>'
+        "</div>"
+        for item in shown_models
+    )
+    if len(models) > len(shown_models):
+        rest = models[len(shown_models):]
+        model_rows += (
+            '<div class="model-row">'
+            f'<span class="model-name">其他 {len(rest)} 个模型</span>'
+            f'<span>{fmt_tokens(sum(item.total for item in rest))}</span>'
+            f'<span>{sum(item.requests for item in rest)}</span>'
+            f'<span class="model-cost">{"—" if not all(item.priced for item in rest) else fmt_cny(sum(item.cost for item in rest))}</span>'
+            "</div>"
+        )
+    if not models:
+        model_rows = '<div class="model-row"><span class="model-name">本周暂无模型用量</span><span></span><span></span><span></span></div>'
+    model_note = (
+        "按 DeepSeek 官方价目（2026-10 核对）估算：高峰价，空闲时段半价；缓存写入并入未命中输入；以实际账单为准。"
+        + ("" if cost_complete else " 有未收录价格的模型未计价。")
+    )
 
     risk_text = context["risk_text"]
     plan_items = context["plan_items"]
@@ -581,19 +722,19 @@ def render_html(context: dict) -> str:
   * {{ box-sizing: border-box; }}
   html, body {{ margin: 0; padding: 0; }}
   body {{
-    width: {CARD_WIDTH}px; height: {CARD_HEIGHT}px; overflow: hidden;
+    width: {CARD_WIDTH}px; height: {card_height}px; overflow: hidden;
     background: #f4f5f8;
     font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     color: #17171d;
   }}
-  .page {{ padding: 62px 72px 50px; height: {CARD_HEIGHT}px; display: flex; flex-direction: column; }}
+  .page {{ padding: 62px 72px 50px; height: {card_height}px; display: flex; flex-direction: column; }}
   .top {{ display: flex; justify-content: space-between; align-items: baseline; }}
   .brand {{ font-size: 22px; letter-spacing: 4px; font-weight: 800; color: #5b5bd6; }}
   .date {{ font-size: 23px; color: #8f93a3; }}
   h1 {{ margin: 38px 0 0; font-size: 74px; line-height: 1.05; font-weight: 800; letter-spacing: -1px; }}
   .subtitle {{ margin-top: 20px; font-size: 27px; color: #5f6270; }}
-  .kpis {{ margin-top: 32px; display: flex; gap: 20px; }}
+  .kpis {{ margin-top: 32px; display: flex; gap: 16px; }}
   .card {{ background: #fff; border: 1px solid #e8e9f0; border-radius: 20px; }}
   .token {{ margin-top: 24px; padding: 22px 26px; }}
   .token-grid {{ display: flex; gap: 26px; }}
@@ -613,6 +754,20 @@ def render_html(context: dict) -> str:
   .section {{ margin-top: 38px; }}
   .section-title {{ display: flex; align-items: center; font-size: 25px; font-weight: 700; color: #17171d; }}
   .dot {{ width: 13px; height: 13px; border-radius: 50%; background: #5b5bd6; margin-right: 12px; }}
+  .models {{ margin-top: 16px; padding: 16px 24px 12px; }}
+  .models-head {{ display: flex; justify-content: space-between; align-items: baseline; font-size: 19px; color: #5f6270; }}
+  .models-head .note {{ color: #a0a3b1; font-size: 18px; }}
+  .model-table {{ margin-top: 8px; }}
+  .model-row {{ display: flex; align-items: baseline; padding: 4px 0; font-size: 18px; color: #4f5260; }}
+  .model-row > span:nth-child(1) {{ flex: 1.55; }}
+  .model-row > span:nth-child(2) {{ flex: 1; text-align: right; }}
+  .model-row > span:nth-child(3) {{ flex: 0.55; text-align: right; }}
+  .model-row > span:nth-child(4) {{ flex: 0.9; text-align: right; color: #17171d; }}
+  .model-header {{ font-size: 15px; color: #a0a3b1; border-bottom: 1px solid #eceef4; padding-bottom: 5px; }}
+  .model-total {{ border-top: 1px solid #eceef4; margin-top: 2px; padding-top: 6px; font-weight: 700; color: #17171d; }}
+  .model-name {{ font-weight: 700; color: #2b2c33; }}
+  .model-cost {{ font-weight: 700; }}
+  .model-note {{ margin-top: 6px; font-size: 14px; color: #a0a3b1; }}
   .risk {{ margin-top: 24px; background: #fff7ec; border: 1px solid #f6dfbd; border-radius: 16px;
           padding: 20px 24px; font-size: 22px; color: #8a4b12; line-height: 1.5; }}
   .risk b {{ color: #b45309; margin-right: 12px; }}
@@ -632,6 +787,7 @@ def render_html(context: dict) -> str:
     {kpi(f"{stats.requests}", "模型请求")}
     {kpi(f"{stats.sessions}", "会话数")}
     {kpi(f"{stats.cache_hit:.1f}%", "缓存命中")}
+    {kpi(fmt_cny(cost_total), "API 费用", 34)}
   </div>
 
   <div class="card token">
@@ -653,6 +809,16 @@ def render_html(context: dict) -> str:
     </div>
   </div>
 
+  <div class="card models">
+    <div class="models-head"><span>模型 Token / 费用</span><span class="note">API 费用 ≈ {fmt_cny(cost_total)}</span></div>
+    <div class="model-table">
+      <div class="model-row model-header"><span>模型</span><span>Token</span><span>请求</span><span>费用</span></div>
+      {model_rows}
+      <div class="model-row model-total"><span>合计</span><span>{fmt_tokens(stats.total)}</span><span>{stats.requests}</span><span>{fmt_cny(cost_total)}</span></div>
+    </div>
+    <div class="model-note">{html.escape(model_note)}</div>
+  </div>
+
   <div class="section">
     <div class="section-title"><span class="dot"></span>本周重点</div>
     {highlights_html}
@@ -672,7 +838,7 @@ def render_html(context: dict) -> str:
 </div></body></html>"""
 
 
-def screenshot(html_path: Path, png_path: Path) -> None:
+def screenshot(html_path: Path, png_path: Path, height: int = CARD_HEIGHT) -> None:
     chromium = find_chromium()
     if not chromium:
         raise RuntimeError("no chromium/chrome binary found for headless screenshot")
@@ -684,7 +850,7 @@ def screenshot(html_path: Path, png_path: Path) -> None:
             "--hide-scrollbars",
             "--no-sandbox",
             "--force-device-scale-factor=1",
-            f"--window-size={CARD_WIDTH},{CARD_HEIGHT}",
+            f"--window-size={CARD_WIDTH},{height}",
             f"--screenshot={png_path}",
             html_path.as_uri(),
         ],
@@ -744,13 +910,21 @@ def build_context(args: argparse.Namespace) -> dict:
         ]
         task_pct = 61.7
         task_total = 32_500_000
-        risk_text = "示例阻塞：未配置 merge CLI/审批规则，需要人工 review + merge。"
+        models = [
+            ModelUsage("deepseek-official", "deepseek-flash", 100_000, 150_000, 30_000_000, 0, 150, 2.60, True),
+            ModelUsage("deepseek-official", "deepseek-v4-pro", 61_000, 99_000, 22_267_000, 0, 96, 9.90, True),
+        ]
+        cost_total, cost_complete = 12.50, True
+        risk_text = "示例阻塞：需要人工 review 后再合并。"
         plan_items = ["审阅并合并 PR #20", "跟进示例任务 D", "补齐示例文档"]
         subtitle = "示例数据：本周处理 6 项任务，3 项完成"
     else:
         tickets = load_tickets()
         titles = {ticket["id"]: strip_markdown(ticket.get("title") or "") for ticket in tickets}
-        stats, session_tokens = collect_usage(start, end)
+        stats, session_tokens, model_usages = collect_usage(start, end)
+        models = sorted(model_usages.values(), key=lambda item: item.total, reverse=True)
+        cost_total = sum(item.cost for item in models)
+        cost_complete = all(item.priced for item in models) if models else True
         snapshot = collect_tickets(tickets, start, end)
         prs = collect_prs(snapshot, args.repo)
         shares, task_pct, task_total = attribute_task_shares(session_tokens, titles)
@@ -792,11 +966,18 @@ def build_context(args: argparse.Namespace) -> dict:
         if not plan_items:
             plan_items = ["保持日常维护与待命", "关注新请求"]
 
+    display_rows = min(len(models), 4) + (1 if len(models) > 4 else 0)
+    card_height = CARD_HEIGHT + max(0, display_rows - 2) * 30
+
     return {
         "stats": stats,
         "tickets": snapshot,
         "shares": shares,
         "prs": prs,
+        "models": models,
+        "card_height": card_height,
+        "cost_total": cost_total,
+        "cost_complete": cost_complete,
         "task_pct": task_pct,
         "task_total": task_total,
         "start": start,
@@ -818,6 +999,11 @@ def send_text_fallback(chat: str, context: dict, reason: str) -> None:
         f"- Token 用量：{fmt_tokens(stats.total)}（缓存 {fmt_tokens(stats.cache_read_tokens)} / 输入 {fmt_tokens(stats.input_tokens)} / 输出 {fmt_tokens(stats.output_tokens)}）",
         f"- 模型请求：{stats.requests} · 会话数：{stats.sessions} · 缓存命中：{stats.cache_hit:.1f}%",
         f"- 任务 Token 占比：{context['task_pct']:.1f}%（{', '.join(f'{s.label} {s.pct:.1f}%' for s in context['shares'][:4])}）",
+        f"- API 费用：约 {fmt_cny(context['cost_total'])}（DeepSeek 官方价目，高峰价/空闲半价）",
+        *[
+            f"  - {item.model}：{fmt_tokens(item.total)} token · {fmt_cny(item.cost) if item.priced else '未收录价格'}"
+            for item in context["models"][:4]
+        ],
         "",
         "**本周重点**",
     ]
@@ -898,7 +1084,7 @@ def main() -> int:
 
         render_error: str | None = None
         try:
-            screenshot(html_path, temp_png)
+            screenshot(html_path, temp_png, context.get("card_height", CARD_HEIGHT))
             shutil.copyfile(temp_png, png_path)
         except Exception as exc:  # noqa: BLE001 - fall back to text
             render_error = str(exc)
@@ -915,6 +1101,12 @@ def main() -> int:
                     "sessions": stats.sessions,
                     "cache_hit_pct": round(stats.cache_hit, 1),
                     "task_token_pct": round(context["task_pct"], 1),
+                    "cost_cny": round(context["cost_total"], 2),
+                    "models": [
+                        {"model": item.model, "tokens": item.total, "requests": item.requests,
+                         "cost_cny": round(item.cost, 2), "priced": item.priced}
+                        for item in context["models"]
+                    ],
                     "tickets": context["tickets"].total,
                     "done": context["tickets"].done,
                     "prs": [p.number for p in context["prs"]],

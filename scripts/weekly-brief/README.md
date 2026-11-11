@@ -1,13 +1,14 @@
 # DSH 周报（周日 20:00 飞书卡片）
 
-每周日 20:00 由 launchd 运行 `weekly_brief.py`，把本周的工作、token 用量（含任务占比饼图）
-和下周重点渲染成一张 1241×1754 的 PNG 卡片，用 `gpt`（dsh-superagent）机器人发到部署时指定的飞书群。
+每周日 20:00 由 launchd 运行 `weekly_brief.py`，把本周的工作、token 用量（按模型拆分、含任务占比饼图
+和 API 费用换算）和下周重点渲染成一张 1241×1754 的 PNG 卡片，用 `gpt`（dsh-superagent）机器人发到部署时指定的飞书群。
 
 所有数据都在本机读取，不调用模型：
 
 | 内容 | 来源 |
 | --- | --- |
 | Token 用量 / 模型请求 / 会话数 / 缓存命中 | `~/.dsh/sessions/*/*/session.v4.jsonl.zstd` 里每条 `assistant/message` 的 `usage`（provider 计费口径） |
+| 模型 Token / API 费用 | 每条请求的 `source.provider` / `source.model`，按 DeepSeek 官方价目和该请求所在时段（高峰 / 空闲）换算 |
 | 任务 Token 占比饼图 | 按 session 目录名 `worker-<ticketId>` 归因到对应工单；个人会话与编排会话归入「非任务会话」 |
 | 本周重点 / 风险 / 下周重点 | `~/.dsh/state/superagent/orchestrator.sqlite` 中本周的工单、assignment 状态与 worker report |
 | PR 是否待合并 | `gh pr view <url>` / `gh pr list -R ds4syk/macmini-playground --state open`，网络失败时只影响 PR 行 |
@@ -20,6 +21,27 @@
 - 饼图：显示 token 最多的 4 个任务，其余任务合并为「其他任务」，个人/编排会话为「非任务会话」；
   圆心是本周期内所有任务 token 占总 token 的比例。
 - 数字使用「万 / 亿」，与群里此前的卡片一致。
+
+## API 价格换算
+
+卡片上的「API 费用」和「模型 Token / 费用」是估算，不是账单。单价取
+[DeepSeek 官方「模型 & 价格」](https://api-docs.deepseek.com/zh-cn/quick_start/pricing)（2026-10 核对），
+单位：元 / 百万 tokens。
+
+| 模型 | 缓存命中输入 | 缓存未命中输入 | 输出 |
+| --- | --- | --- | --- |
+| `deepseek-flash` | 0.04 | 2 | 8 |
+| `deepseek-v4-pro` | 0.30 | 9 | 27 |
+
+- 上表是**高峰价**；官方空闲时段价为高峰价的一半。高峰时段为北京时间周一至周五
+  （不含法定节假日）9:00–12:00、14:00–18:00，其余时间（含周末、节假日全天）为空闲时段。
+- 每条请求按它自己的时间戳判断高峰 / 空闲，所以同一周的请求可能有一部分半价。
+- 缓存写入不单列，按官方口径并入「缓存未命中输入」。
+- 旧模型名 `deepseek-v4-flash`、`deepseek-v4-flash-vision-exp` 按 `deepseek-flash` 计价。
+- 未收录的模型名不猜价格，费用显示「—」，卡片脚注会注明有未计价模型。
+- 不含网页搜索 / 抓取等按次计费项；实际扣费以官方账单为准。
+- 价格表在 `weekly_brief.py` 顶部（`CNY_PEAK_PRICES` / `MODEL_ALIASES` / `BUILTIN_HOLIDAYS`），
+  官方调价后改这里并重新 `install.sh`。
 
 ## 安装（一次性）
 
