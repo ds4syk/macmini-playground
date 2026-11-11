@@ -165,11 +165,14 @@ def generate_decision(model: Dict[str, str], system: str, user: str) -> Dict:
         attempts.append(response)
         try:
             parsed = extract_json(response["content"])
-            if "targets" not in parsed:
-                raise ValueError("missing targets key")
+            raw_targets = parsed.get("targets")
+            if not isinstance(raw_targets, list):
+                raise ValueError("targets must be a list")
             targets, problems = normalize_targets(
-                parsed.get("targets") or [], {u["symbol"] for u in config.UNIVERSE}
+                raw_targets, {u["symbol"] for u in config.UNIVERSE}
             )
+            if raw_targets and not targets:
+                raise ValueError("no valid target survived validation")
             return {
                 "targets": targets,
                 "market_view": str(parsed.get("market_view") or "")[:400],

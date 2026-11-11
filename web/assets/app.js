@@ -221,6 +221,7 @@
         backgroundColor: "rgba(22,40,63,.94)",
         borderWidth: 0,
         padding: [8, 10],
+        confine: true,
         textStyle: { color: "#fff", fontSize: 11 },
         axisPointer: { type: "line", lineStyle: { color: "#c8d0d9" } },
         valueFormatter: (value) => (state.mode === "ret" ? fmtPct(value) : fmtMoney(value)),

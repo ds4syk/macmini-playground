@@ -142,7 +142,7 @@ python3 -m unittest discover -s tests -v
 
 覆盖：费用（含最低佣金、印花税）、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护。
 
-回放结果与前端截图见 `docs/screenshots/` 与 PR 描述。
+本次回放的完整结果快照见 [`docs/RESULTS.md`](docs/RESULTS.md)；界面截图见 [`docs/screenshots/`](docs/screenshots/)（`before.png` 为初始骨架，`after-*.png` 为最终界面）。
 
 ## 已知局限
 
@@ -151,4 +151,5 @@ python3 -m unittest discover -s tests -v
 - 使用前复权价格近似真实成交价，未模拟分红送转的现金/股份变动。
 - 开盘价一次性成交，未模拟滑点、盘口深度、涨跌停排队；涨跌停仅做方向性跳过。
 - 单一数据源（腾讯行情），未做多源交叉校验。
+- 本轮 Kimi 前端优化因 Sensenova 上游持续返回 HTTP 429（8 次重试）未执行；界面已用 Playwright 做桌面 1440px 与移动 390px 自检（无 console 错误、无横向溢出）。
 - 模型 API 与服务可用性依赖外部账号；密钥只放在 `~/.config/paper-trader/.env`，不进入 git、镜像或前端。

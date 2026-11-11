@@ -20,6 +20,7 @@ block = f'''# >>> paper-trader (managed by dsh-superagent ticket fe9b2dd99152)
 
     handle_path /{token}/* {{
         root * {root}
+        encode gzip
         file_server
         header {{
             Cache-Control "no-store"

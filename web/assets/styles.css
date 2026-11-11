@@ -215,7 +215,7 @@ main { max-width: 1440px; margin: 0 auto; padding: 18px 26px 34px; }
 .decision-box .target { display: flex; gap: 6px; align-items: baseline; padding: 3px 0; border-bottom: 1px dashed var(--line-soft); }
 .decision-box .target b { font-weight: 600; min-width: 66px; }
 .decision-box .target span { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); }
-.decision-box .target em { font-style: normal; color: var(--muted); font-size: 10px; }
+.decision-box .target em { font-style: normal; color: var(--muted); font-size: 10px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-left: 6px; }
 
 /* universe */
 .universe { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; max-height: 306px; overflow-y: auto; padding-right: 3px; }
