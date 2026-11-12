@@ -11,7 +11,7 @@
     "alarm_available_pct": 10.0,
     "clear_available_pct": 15.0,
     "alarm_compressor_pct": 25.0,
-    "clear_compressor_pct": 15.0,
+    "clear_compressor_pct": 20.0,
     "alarm_swap_pct": 30.0,
     "alarm_swap_available_pct": 15.0,
     "alarm_pressure_level": 2,

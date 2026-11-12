@@ -76,7 +76,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "clear_available_pct": 15.0,
         # 压缩内存占物理内存比例。
         "alarm_compressor_pct": 25.0,
-        "clear_compressor_pct": 15.0,
+        # 解除线比告警线低 5 个百分点，形成迟滞，避免在阈值附近反复告警。
+        "clear_compressor_pct": 20.0,
         # Swap 已用量占物理内存比例；单独 Swap 高不算，需同时可用内存偏低。
         "alarm_swap_pct": 30.0,
         "alarm_swap_available_pct": 15.0,
@@ -614,10 +615,11 @@ def build_notification_text(
     active_since: float,
     now: float,
     host: str,
+    clear_seconds: Optional[float] = None,
 ) -> str:
     label = "CPU 持续偏高" if metric == "cpu" else "内存紧张"
     if kind == "recovery":
-        title = f"✅ Mac mini 资源恢复：{label}"
+        title = f"✅ Mac mini 警报解除：{label}"
     elif kind == "reminder":
         title = f"🔔 Mac mini 资源仍告警：{label}"
     else:
@@ -628,7 +630,9 @@ def build_notification_text(
     if kind != "recovery" and reasons:
         lines.append("触发条件：" + "；".join(reasons))
     if kind == "recovery":
-        lines.append(f"告警持续：{fmt_duration(now - active_since)}")
+        lines.append(f"本次告警持续：{fmt_duration(now - active_since)}")
+        if clear_seconds is not None:
+            lines.append(f"解除判定：恢复条件持续 {fmt_duration(clear_seconds)}")
     else:
         lines.append(f"已持续：{fmt_duration(now - active_since)}")
     lines.append(f"时间：{human_time(now)}")
@@ -745,8 +749,11 @@ def _queue_notification(
     active_since: float,
     now: float,
     host: str,
+    clear_seconds: Optional[float] = None,
 ) -> PendingNotification:
-    text = build_notification_text(metric, kind, metrics, reasons, active_since, now, host)
+    text = build_notification_text(
+        metric, kind, metrics, reasons, active_since, now, host, clear_seconds=clear_seconds
+    )
     pending = PendingNotification(
         metric=metric,
         kind=kind,
@@ -832,6 +839,7 @@ def evaluate(
                             active_since,
                             now,
                             host,
+                            clear_seconds=settings["clear_seconds"],
                         )
                         queued.append(pending)
                     else:

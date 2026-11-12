@@ -121,7 +121,9 @@ class CpuStateMachineTests(unittest.TestCase):
         queued = drive(state, config, 960, 960, good)
         self.assertEqual([item.kind for item in queued], ["recovery"])
         self.assertFalse(state["metrics"]["cpu"]["active"])
-        self.assertIn("告警持续：16 分钟", queued[0].text)
+        self.assertIn("✅ Mac mini 警报解除：CPU 持续偏高", queued[0].text)
+        self.assertIn("本次告警持续：16 分钟", queued[0].text)
+        self.assertIn("解除判定：恢复条件持续 5 分钟", queued[0].text)
         self.assertFalse(state["metrics"]["cpu"]["announced"])
 
         # 恢复后继续正常，不应再产生通知。
@@ -213,6 +215,17 @@ class MemoryJudgementTests(unittest.TestCase):
             make_metrics(available_pct=12, compressor_pct=10, pressure=1), self.config
         )
         self.assertFalse(in_between.clear)
+
+        # 压缩内存 20% 是解除线（告警线 25%），22% 落在迟滞带内，不算解除。
+        at_clear_line = mm.judge_memory(
+            make_metrics(available_pct=20, compressor_pct=20, pressure=1), self.config
+        )
+        self.assertTrue(at_clear_line.clear)
+        inside_band = mm.judge_memory(
+            make_metrics(available_pct=20, compressor_pct=22, pressure=1), self.config
+        )
+        self.assertFalse(inside_band.clear)
+        self.assertFalse(inside_band.alarm)
         self.assertFalse(in_between.alarm)
 
         pressure_high = mm.judge_memory(
@@ -241,6 +254,8 @@ class MemoryStateMachineTests(unittest.TestCase):
         self.assertEqual(queued, [])
         queued = drive(state, config, 960, 960, good)
         self.assertEqual([item.kind for item in queued], ["recovery"])
+        self.assertIn("✅ Mac mini 警报解除：内存紧张", queued[0].text)
+        self.assertIn("解除判定：恢复条件持续 5 分钟", queued[0].text)
 
 
 class ParsingTests(unittest.TestCase):
