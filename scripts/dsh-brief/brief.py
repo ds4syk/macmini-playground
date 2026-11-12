@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Generate and post the DSH weekly brief to a Feishu group.
+"""Generate and post the DSH daily or weekly brief to a Feishu group.
 
 The brief is rendered as a 1241x1754 PNG card and posted with the
-dsh-superagent Feishu bot once a week (Sunday 20:00 by default).
+dsh-superagent Feishu bot: every day 20:00 (daily) and Sunday 20:00
+(weekly), depending on --period.
 
 Data sources, all local:
   * ~/.dsh/sessions/*/*/session.v4.jsonl.zstd — per-model-request provider
     usage recorded by DSH (input / output / cache-read / cache-write tokens),
     attributed to superagent tasks by the `worker-<ticketId>` session folder.
   * ~/.dsh/state/superagent/orchestrator.sqlite — superagent tickets,
-    assignments and worker reports for the week's work.
+    assignments and worker reports for the period's work.
   * `gh` (optional, short timeout) — state of pull requests referenced by
     the week's reports, used for the open-PR lines.
 
@@ -18,10 +19,10 @@ recorded work, so a failed network call can only omit PR state, never the
 card itself.
 
 Usage:
-  python3 weekly_brief.py --no-post
-  python3 weekly_brief.py --start 2026-11-09 --end 2026-11-11T23:30 --preview
-  python3 weekly_brief.py --demo --no-post
-  python3 weekly_brief.py                     # what launchd runs on Sunday 20:00
+  python3 brief.py --period weekly --no-post
+  python3 brief.py --period daily --start 2026-11-12 --end 2026-11-12T22:00 --preview
+  python3 brief.py --demo --period daily --no-post
+  python3 brief.py --period daily             # what launchd runs Monday-Saturday 20:00
 """
 
 from __future__ import annotations
@@ -49,8 +50,8 @@ DSH_SESSIONS = HOME / ".dsh" / "sessions"
 SUPERAGENT_DB = HOME / ".dsh" / "state" / "superagent" / "orchestrator.sqlite"
 DEFAULT_REPO = "ds4syk/macmini-playground"
 LARK_BOT = HOME / ".local" / "bin" / "lark-bot"
-OUT_DIR = HOME / "datas" / "dsh-weekly-brief" / "out"
-LOCK_FILE = HOME / "datas" / "dsh-weekly-brief" / "weekly-brief.lock"
+OUT_DIR = HOME / "datas" / "dsh-brief" / "out"
+LOCK_FILE = HOME / "datas" / "dsh-brief" / "brief.lock"
 CARD_WIDTH = 1241
 CARD_HEIGHT = 1754
 WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
@@ -611,6 +612,7 @@ def render_html(context: dict) -> str:
     cost_total: float = context["cost_total"]
     cost_complete: bool = context["cost_complete"]
     card_height: int = context.get("card_height", CARD_HEIGHT)
+    is_daily = context["period"] == "daily"
 
     total = stats.total or 1
     segments = [
@@ -653,7 +655,7 @@ def render_html(context: dict) -> str:
 
     highlights_html = "".join(highlight(i + 1, item) for i, item in enumerate(snapshot.items[:3]))
     if not highlights_html:
-        highlights_html = '<div style="padding:24px 0;font-size:24px;color:#8a8d99">本周暂无 DSH 任务记录。</div>'
+        highlights_html = f'<div style="padding:24px 0;font-size:24px;color:#8a8d99">{"今日" if is_daily else "本周"}暂无 DSH 任务记录。</div>'
 
     pie_legend = "".join(
         '<div style="display:flex;align-items:center;gap:8px;margin:7px 0;font-size:18px;color:#4f5260">'
@@ -714,8 +716,19 @@ def render_html(context: dict) -> str:
             'border:1px solid #f5c9a5;border-radius:8px;padding:2px 10px">示例数据</span>'
         )
 
-    week_label = f"{start:%Y-%m-%d} ~ {end:%m-%d}"
+    header_label = (
+        f"{end:%Y-%m-%d} · {WEEKDAYS[end.weekday()]}" if is_daily
+        else f"{start:%Y-%m-%d} ~ {end:%m-%d} · 周报"
+    )
     until_label = f"{end:%m-%d %H:%M}"
+    brand = "DSH DAILY BRIEF" if is_daily else "DSH WEEKLY BRIEF"
+    card_title = "今日工作总结" if is_daily else "本周工作总结"
+    section_current = "今日重点" if is_daily else "本周重点"
+    section_next = "明日重点" if is_daily else "下周重点"
+    footer_period = (
+        f"今天 {start:%m-%d} · 数据截至 {until_label} · DSH 自动生成" if is_daily
+        else f"本周 {start:%m-%d} ~ {end:%m-%d} · 数据截至 {until_label} · DSH 自动生成"
+    )
 
     return f"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><style>
@@ -776,10 +789,10 @@ def render_html(context: dict) -> str:
              font-size: 18px; color: #a0a3b1; border-top: 1px solid #e8e9f0; }}
 </style></head><body><div class="page">
   <div class="top">
-    <div class="brand">DSH WEEKLY BRIEF{badge}</div>
-    <div class="date">{week_label} · 周报</div>
+    <div class="brand">{brand}{badge}</div>
+    <div class="date">{header_label}</div>
   </div>
-  <h1>本周工作总结</h1>
+  <h1>{card_title}</h1>
   <div class="subtitle">{html.escape(subtitle)}</div>
 
   <div class="kpis">
@@ -820,20 +833,20 @@ def render_html(context: dict) -> str:
   </div>
 
   <div class="section">
-    <div class="section-title"><span class="dot"></span>本周重点</div>
+    <div class="section-title"><span class="dot"></span>{section_current}</div>
     {highlights_html}
   </div>
 
   <div class="risk"><b>风险 / 阻塞</b>{html.escape(risk_text)}</div>
 
   <div class="section">
-    <div class="section-title"><span class="dot"></span>下周重点</div>
+    <div class="section-title"><span class="dot"></span>{section_next}</div>
     <div class="plans">{plan_html}</div>
   </div>
 
   <div class="footer">
     <span>数据：DSH 会话日志（provider usage）· superagent 工单</span>
-    <span>本周 {start:%m-%d} ~ {end:%m-%d} · 数据截至 {until_label} · DSH 自动生成</span>
+    <span>{footer_period}</span>
   </div>
 </div></body></html>"""
 
@@ -875,16 +888,19 @@ def resolve_window(args: argparse.Namespace) -> tuple[datetime, datetime]:
         end = now
     if args.start:
         start = parse_local(args.start)
+    elif args.period == "daily":
+        start = datetime.combine(end.date(), time(0, 0), tzinfo=TZ)
     else:
         monday = end.date() - timedelta(days=end.weekday())
         start = datetime.combine(monday, time(0, 0), tzinfo=TZ)
     if end - start < timedelta(hours=1):
-        start = end - timedelta(days=7)
+        start = end - timedelta(days=1 if args.period == "daily" else 7)
     return start, end
 
 
 def build_context(args: argparse.Namespace) -> dict:
     start, end = resolve_window(args)
+    period_word = "今日" if args.period == "daily" else "本周"
 
     if args.demo:
         stats = UsageStats(
@@ -917,7 +933,7 @@ def build_context(args: argparse.Namespace) -> dict:
         cost_total, cost_complete = 12.50, True
         risk_text = "示例阻塞：需要人工 review 后再合并。"
         plan_items = ["审阅并合并 PR #20", "跟进示例任务 D", "补齐示例文档"]
-        subtitle = "示例数据：本周处理 6 项任务，3 项完成"
+        subtitle = f"示例数据：{period_word}处理 6 项任务，3 项完成"
     else:
         tickets = load_tickets()
         titles = {ticket["id"]: strip_markdown(ticket.get("title") or "") for ticket in tickets}
@@ -929,11 +945,11 @@ def build_context(args: argparse.Namespace) -> dict:
         prs = collect_prs(snapshot, args.repo)
         shares, task_pct, task_total = attribute_task_shares(session_tokens, titles)
 
-        subtitle = f"本周 DSH 处理 {snapshot.total} 项任务，{snapshot.done} 项完成"
+        subtitle = f"{period_word} DSH 处理 {snapshot.total} 项任务，{snapshot.done} 项完成"
         if snapshot.blocked:
             subtitle += f"，{len(snapshot.blocked)} 项受阻"
         if not snapshot.total:
-            subtitle = "本周暂无 DSH 任务记录，以下为 token 用量统计"
+            subtitle = f"{period_word}暂无 DSH 任务记录，以下为 token 用量统计"
 
         risk_parts: list[str] = []
         for item in snapshot.attention[:2]:
@@ -942,7 +958,7 @@ def build_context(args: argparse.Namespace) -> dict:
             risk_parts.append(f"「{truncate(item.title, 12)}」受阻")
         if prs:
             risk_parts.append(f"{len(prs)} 个 PR 待人工评审/合并（{', '.join('#%d' % pr.number for pr in prs[:3])}）")
-        risk_text = "；".join(risk_parts) if risk_parts else "无阻塞，本周任务均正常推进。"
+        risk_text = "；".join(risk_parts) if risk_parts else f"无阻塞，{period_word}任务均正常推进。"
 
         plan_items = []
         planned: set[str] = set()
@@ -982,6 +998,7 @@ def build_context(args: argparse.Namespace) -> dict:
         "task_total": task_total,
         "start": start,
         "end": end,
+        "period": args.period,
         "demo": args.demo,
         "preview": args.preview,
         "subtitle": subtitle,
@@ -993,8 +1010,15 @@ def build_context(args: argparse.Namespace) -> dict:
 def send_text_fallback(chat: str, context: dict, reason: str) -> None:
     """Send a plain markdown digest if image rendering/posting fails."""
     stats: UsageStats = context["stats"]
+    is_daily = context["period"] == "daily"
+    label = "今日" if is_daily else "本周"
+    next_label = "明日" if is_daily else "下周"
+    heading = (
+        f"**DSH 日报 · {context['end']:%m-%d}**" if is_daily
+        else f"**DSH 周报 · {context['start']:%m-%d} ~ {context['end']:%m-%d}**"
+    )
     lines = [
-        f"**DSH 周报 · {context['start']:%m-%d} ~ {context['end']:%m-%d}**",
+        heading,
         "",
         f"- Token 用量：{fmt_tokens(stats.total)}（缓存 {fmt_tokens(stats.cache_read_tokens)} / 输入 {fmt_tokens(stats.input_tokens)} / 输出 {fmt_tokens(stats.output_tokens)}）",
         f"- 模型请求：{stats.requests} · 会话数：{stats.sessions} · 缓存命中：{stats.cache_hit:.1f}%",
@@ -1005,13 +1029,13 @@ def send_text_fallback(chat: str, context: dict, reason: str) -> None:
             for item in context["models"][:4]
         ],
         "",
-        "**本周重点**",
+        f"**{label}重点**",
     ]
     for i, item in enumerate(context["tickets"].items[:3], 1):
         lines.append(f"{i}. {item.title} — {truncate(item.desc, 60)}")
     if not context["tickets"].items:
-        lines.append("本周暂无 DSH 任务记录。")
-    lines += ["", f"**风险 / 阻塞**：{context['risk_text']}", "", "**下周重点**"]
+        lines.append(f"{label}暂无 DSH 任务记录。")
+    lines += ["", f"**风险 / 阻塞**：{context['risk_text']}", "", f"**{next_label}重点**"]
     lines += [f"{i}. {text}" for i, text in enumerate(context["plan_items"][:3], 1)]
     lines += ["", f"_图片卡片生成失败，已降级为文本（{reason}）_"]
     proc = subprocess.run(
@@ -1044,11 +1068,13 @@ def post_image(chat: str, png_path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Post the DSH weekly brief to Feishu")
-    parser.add_argument("--start", help="window start (YYYY-MM-DD or ISO datetime), default this Monday 00:00")
+    parser = argparse.ArgumentParser(description="Post the DSH daily or weekly brief to Feishu")
+    parser.add_argument("--period", choices=("daily", "weekly"), default="weekly",
+                        help="daily (today 00:00 -> now) or weekly (this Monday 00:00 -> now)")
+    parser.add_argument("--start", help="window start (YYYY-MM-DD or ISO datetime), period default otherwise")
     parser.add_argument("--end", help="window end (YYYY-MM-DD or ISO datetime), default now")
-    parser.add_argument("--chat", default=os.environ.get("DSH_WEEKLY_BRIEF_CHAT"),
-                        help="target chat id; defaults to $DSH_WEEKLY_BRIEF_CHAT")
+    parser.add_argument("--chat", default=os.environ.get("DSH_BRIEF_CHAT"),
+                        help="target chat id; defaults to $DSH_BRIEF_CHAT")
     parser.add_argument("--repo", default=os.environ.get("DSH_SUPERAGENT_GITHUB_REPOSITORY", DEFAULT_REPO))
     parser.add_argument("--preview", action="store_true", help="mark the card as a preview")
     parser.add_argument("--no-post", action="store_true", help="render only, do not send to Feishu")
@@ -1057,7 +1083,7 @@ def main() -> int:
     parser.add_argument("--out", help="output PNG path")
     args = parser.parse_args()
     if not args.no_post and not args.dry_run and not args.chat:
-        parser.error("--chat or $DSH_WEEKLY_BRIEF_CHAT is required when posting")
+        parser.error("--chat or $DSH_BRIEF_CHAT is required when posting")
 
     started = datetime.now(TZ)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -1067,13 +1093,13 @@ def main() -> int:
     try:
         fcntl.flock(lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        print("[skip] another weekly brief run is in progress")
+        print("[skip] another brief run is in progress")
         return 0
 
     workdir: Path | None = None
     try:
         context = build_context(args)
-        png_path = Path(args.out) if args.out else OUT_DIR / f"weekly-brief-{context['end']:%Y-%m-%d}.png"
+        png_path = Path(args.out) if args.out else OUT_DIR / f"{context['period']}-brief-{context['end']:%Y-%m-%d}.png"
         png_path.parent.mkdir(parents=True, exist_ok=True)
 
         html_text = render_html(context)
