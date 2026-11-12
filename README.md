@@ -47,6 +47,12 @@
 - 数据：东方财富 `RPT_VALUEANALYSIS_DET` 日度全市场快照（2018–2026）；没有成交量与开盘价，因此用收盘执行、不做换手率/Amihud 因子。
 - 结果与局限：见 [docs/RESULTS.md](docs/RESULTS.md) 和 [experiments/multifactor_smallcap/README.md](experiments/multifactor_smallcap/README.md)。跨家族标的池和费用口径不同，**收益不可直接比较**。
 
+### 模拟盘（中信 / 同花顺）
+
+- `python3 -m paper_trader.broker list` 看模型/本金；`orders --broker citic|ths` 生成调仓清单（CSV + Markdown），按目标权重复刻，保留模型现金比例；支持 13 个模型 × 4 档本金。
+- 不自动下单：信e投/同花顺散户模拟盘没有公开下单 API；QMT/PTrade 需客户经理开通量化权限（常见 30/50 万门槛、Windows）。
+- 用法、中信/同花顺入口、多模型账户安排和需要确认的事项见 [docs/BROKER.md](docs/BROKER.md)。
+
 ### LLM 模型（保留）
 
 | 模型 | Provider |
