@@ -370,10 +370,16 @@ def write_export(conn: sqlite3.Connection, path) -> dict:
     if local_path.exists():
         local = json.loads(local_path.read_text(encoding="utf-8"))
         local["generated_at"] = now
-        families = {"local": local, "llm": llm}
+        families["local"] = local
+    multifactor_path = config.DATA_DIR / "multifactor_family.json"
+    if multifactor_path.exists():
+        multifactor = json.loads(multifactor_path.read_text(encoding="utf-8"))
+        multifactor["generated_at"] = now
+        families["multifactor"] = multifactor
+    families = {key: families[key] for key in ("local", "multifactor", "llm") if key in families}
     payload = {
         "generated_at": now,
-        "default_family": "local" if "local" in families else "llm",
+        "default_family": "local" if "local" in families else next(iter(families)),
         "families": families,
     }
     path.parent.mkdir(parents=True, exist_ok=True)

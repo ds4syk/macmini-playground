@@ -74,6 +74,13 @@ python3 -m paper_trader.runner status
 | 模型调用失败 | `decisions.error` 非空时组合保持持仓；查看 runner 输出与 provider 状态 |
 | 行情失败 | 腾讯接口有频控/反爬；本地缓存仍可用于回放，稍后重试 `fetch` |
 
+## 多因子 · 小市值家族
+
+- 数据源：`~/labs/VLA/Share/multifactor/local_export/`（lab 训练的 `panel.npz`、`metadata.json`、三个变体的月度分数矩阵、`metrics.json`）。
+- 重建：lab 跑 `experiments/multifactor_smallcap/multifactor.sbatch` → rsync `local_export/` 回 Mac mini → `python3 -m paper_trader.multifactor` → `python3 -m paper_trader.runner export`。
+- 这是**历史回放快照**，不是每日信号：分数截至最后一次月度调仓日（当前 2026-10-30），持仓按最后交易日收盘估值。重新训练后才需要刷新。
+- 前端通过 `data/multifactor_family.json` 是否存在决定是否展示第三个家族；文件缺失时 `export` 只输出两个家族。
+
 ## 自训模型家族
 
 - 数据源：`~/labs/VLA/Share/v2/local_data/`（`panel.npz`、`metadata.json`、五条路线的 `*_ensemble.npz` 分数矩阵；GDN 无 ensemble，使用三个种子均值）。
