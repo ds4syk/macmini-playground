@@ -6,15 +6,15 @@
 
 ## 0. 结论
 
-- **2 MB 完全训得动。** 526,115 个参数（fp32 2.01 MiB，fp16 1.00 MiB），在 Mac mini M4 的 MPS 上 15 轮预训练 61 秒；数据量（653 股 × 2,759 日 × 25 特征，42.6 万训练样本）足以支撑这个量级，按"每参数约 86 个原始数值 / 1.2 个样本窗口"算，2 MB 已经是当前数据的上限附近，再大主要是在拟合噪声。
+- **2 MB 完全训得动。** 526,115 个参数（fp32 2.01 MiB，fp16 1.00 MiB）；训练提交到 lab 的 Slurm `gpu` 队列（RTX 5090，`dreamina.sbatch`），本地 M4 MPS 只做冒烟（15 轮约 61 秒）。数据量（653 股 × 2,759 日 × 25 特征，42.6 万训练样本）足以支撑这个量级，按"每参数约 86 个原始数值 / 1.2 个样本窗口"算，2 MB 已经是当前数据的上限附近，再大主要是在拟合噪声。
 - **架构能跑通，但 2 MB 的生成式预训练没有稳定打赢"直接读上下文"的对照。** 做了两种 tokenization（16 股/patch = 2.01 MB；8 股/patch = 1.87 MB）：
-  - 16 股/patch：生成 + 上下文 测试 IC **0.0388**，只用上下文 **0.0539**；
+  - 16 股/patch：生成 + 上下文 测试 IC **0.0423**，只用上下文 **0.0539**；
   - 8 股/patch：生成 + 上下文 测试 IC **0.0470**，只用上下文 **0.0366**；
-  - 只喂生成结果（不带上下文）：测试 IC **0.0009**，基本没有信号；
+  - 只喂生成结果（不带上下文）：测试 IC **0.0053**，基本没有信号；
   - v2 的 GRU+注意力参考：测试 IC **0.0636**。
   - 两个 tokenization 下"生成 vs 不生成"的符号相反，差距（±0.01–0.02 IC）与 probe 种子/区间的噪声同量级；**目前不能声称生成式预训练带来了可靠增量**。
 - **结论与《Share 下一轮方案》一致**：当前瓶颈是数据/特征/信噪比，不是参数容量。把图像/视频生成架构"暴改"成股票模型在工程上可行，但在这个数据规模下继续堆参数/堆生成步数，预期只降低训练损失、不提高样本外 IC；下一轮应优先扩数据、扩特征、做严格验证。
-- **一个重要旁证**：把"真实未来 5 日特征"喂给同一个 probe，测试 IC 0.97、回测 +1.5 万%。这说明整条"面板 → 视频 → 排序 → 组合"的管线是通的，瓶颈在"预测未来"这一步，不在回测/执行环节。这个数字是泄漏上界，**不能当作策略结果**。
+- **一个重要旁证**：把"真实未来 5 日特征"喂给同一个 probe，测试 IC 0.9697、回测 +15,601%。这说明整条"面板 → 视频 → 排序 → 组合"的管线是通的，瓶颈在"预测未来"这一步，不在回测/执行环节。这个数字是泄漏上界，**不能当作策略结果**。
 
 ## 1. 把图/视频改成股票数据
 
@@ -55,7 +55,7 @@
 - 标签：`open[t+6]/open[t+1]-1` 的当日截面排名 `z ∈ [-1,1]`（与 v2 一致）。
 - 阶段 1：VAE 重建热身 2 轮，然后联合训练 flow matching（`recon_weight=0.1`）。
 - 数据切分：训练 2016–2021（1,455 个信号日）、验证 2022–2023（478）、测试 2024–2026-11-09（683）。
-- 优化：AdamW，lr 1e-3，cosine，wd 1e-4，梯度裁剪 1.0，15 轮；按验证重建损失取第 8 轮。
+- 优化：AdamW，lr 1e-3，cosine，wd 1e-4，梯度裁剪 1.0，15 轮（约 49 秒）；按验证重建损失取第 8 轮。训练在 lab 的 Slurm GPU 节点上跑（`dreamina.sbatch`，作业 2733，RTX 5090），数据读 `/mnt/storage1/.../Share/gru/data`，结果写 `/mnt/storage1/.../Share/dreamina/`。
 - 阶段 2：冻结生成器，用生成出的未来 5 日特征（或对照：最近 5 日上下文特征）训练一个小 probe（LayerNorm → Linear 32 → GELU → Linear 1，Huber）。
 - 阶段 3：probe 分数 → v2 的低换手组合（30 只、跌出前 50 才卖、每 5 日最多换 5 只、次日开盘、买 0.10%/卖 0.20%、1% 成交额上限）。
 
@@ -65,10 +65,10 @@
 
 | Probe | 验证 IC | 测试 IC | 累计收益 | 最大回撤 | Sharpe | 年化费用/净资产 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 生成未来 5 日 + 上下文（Dreamina 路线） | 0.0364 | 0.0388 | +44.20% | -31.05% | 0.69 | 2.58% |
+| 生成未来 5 日 + 上下文（Dreamina 路线） | 0.0348 | 0.0423 | +39.01% | -25.22% | 0.66 | 2.59% |
 | 最近 5 日上下文（对照） | 0.0439 | 0.0539 | +45.65% | -21.26% | 0.77 | 2.58% |
 | v2 GRU+注意力（参考） | — | 0.0636 | +30.33% | -16.09% | 0.70 | 2.47% |
-| 真实未来 5 日特征（泄漏上界，仅诊断） | 0.9736 | 0.9678 | +11,317% | -11.50% | 6.02 | 2.57% |
+| 真实未来 5 日特征（泄漏上界，仅诊断） | 0.9747 | 0.9697 | +15,601% | -9.83% | 7.01 | 2.56% |
 
 **稳健性：8 股/patch，1.87 MB，410 个未来 token（`reports_g8/`）**
 
@@ -85,7 +85,7 @@
 
 **怎么读这张表**：
 
-1. **生成 vs 不生成的符号会翻转**：16 股/patch 是 0.0388 < 0.0539，8 股/patch 是 0.0470 > 0.0366。差距都在 ±0.01–0.02，和 probe 种子/回测路径的噪声同量级；因此不能得出"生成式预训练有效"的结论，也不能得出"一定有害"的结论。
+1. **生成 vs 不生成的符号会翻转**：16 股/patch 是 0.0423 < 0.0539，8 股/patch 是 0.0470 > 0.0366。差距都在 ±0.01–0.02，和 probe 种子/回测路径的噪声同量级；因此不能得出"生成式预训练有效"的结论，也不能得出"一定有害"的结论。
 2. **只喂生成结果几乎没有信号**（测试 IC 0.0009）。生成模型学到的主要是"未来的平滑条件均值"，对 5 日截面排序不够。
 3. **回测收益和 IC 不单调**：两条 2 MB 路线的累计收益都能高于 GRU 参考，但最大回撤更大；回测区间的 2024–2026 已经被看过，不是严格前向证据，不能据此说 2 MB 模型更好。
 4. **泄漏上界 IC 0.97**：证明"面板 → 视频 → probe → 组合"的管线和记账不是瓶颈；真正难的是预测未来 5 日截面。
@@ -108,19 +108,18 @@
 ~/.venvs/dreamina/bin/python -m pip install torch numpy scipy pandas matplotlib \
   -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 主实验（2.0 MB，16 股/patch）
-cd <repo>
-~/.venvs/dreamina/bin/python -m experiments.dreamina_stock.train \
-  --config experiments/dreamina_stock/config.json
+# 主实验：同步到 lab 后用 Slurm 提交（推荐）
+rsync -az --exclude 'reports*' --exclude '__pycache__' experiments/ \
+  lab:/home/syk/experiments/Share/dreamina/experiments/
+rsync -az experiments/dreamina_stock/dreamina.sbatch \
+  lab:/home/syk/experiments/Share/dreamina/
+ssh lab 'cd /home/syk/experiments/Share/dreamina && sbatch dreamina.sbatch'
 
 # 8 股/patch 变体
-~/.venvs/dreamina/bin/python -m experiments.dreamina_stock.train \
-  --config experiments/dreamina_stock/config_g8.json \
-  --output experiments/dreamina_stock/reports_g8
+ssh lab 'cd /home/syk/experiments/Share/dreamina && CONFIG=config_g8.json OUTDIR=results_g8 sbatch --job-name dreamina-g8 dreamina.sbatch'
 
-# 图与汇总表
-~/.venvs/dreamina/bin/python -m experiments.dreamina_stock.analyze \
-  --reports experiments/dreamina_stock/reports
+# 本地冒烟（不用于正式结果）
+~/.venvs/dreamina/bin/python -m experiments.dreamina_stock.train --smoke
 ```
 
 输入面板默认读 `~/labs/VLA/Share/v2/local_data`（可用 `VLA_PANEL_DIR` 覆盖），回测直接复用 v2 的 `compute.py` 记账函数（代码目录可用 `VLA_CODE_DIR` 覆盖）。

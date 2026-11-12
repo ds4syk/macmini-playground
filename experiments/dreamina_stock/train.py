@@ -51,6 +51,7 @@ def parse_args():
 
 def load_config(path: str, smoke: bool) -> dict:
     config = json.loads(Path(path).read_text())
+    config["panel_dir"] = os.environ.get("VLA_PANEL_DIR", config["panel_dir"])
     config["smoke"] = smoke
     if smoke:
         config["epochs"] = 2

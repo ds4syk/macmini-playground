@@ -56,6 +56,7 @@ def main():
     reports = Path(args.reports)
     metrics = json.loads((reports / "metrics.json").read_text())
     config = metrics["config"]
+    config["panel_dir"] = os.environ.get("VLA_PANEL_DIR", config["panel_dir"])
     panel = load_panel(config["panel_dir"])
     from experiments.dreamina_stock.data import signal_dates
 
@@ -89,8 +90,10 @@ def main():
         path = reports / f"scores_{mode}.npy"
         if path.exists():
             curves[mode] = equity_curve(np.load(path), panel, list(test_dates), config)
-    reference = np.load(Path(config["panel_dir"]).expanduser() / "scores" / "attn_gru_ensemble.npz")["score"].T
-    curves["gru_reference"] = equity_curve(reference, panel, list(test_dates), config)
+    reference_path = Path(config["panel_dir"]).expanduser() / "scores" / "attn_gru_ensemble.npz"
+    if reference_path.exists():
+        reference = np.load(reference_path)["score"].T
+        curves["gru_reference"] = equity_curve(reference, panel, list(test_dates), config)
 
     figure, axis = plt.subplots(figsize=(8, 4), dpi=150)
     for name, ledger in curves.items():
