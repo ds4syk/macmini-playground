@@ -8,21 +8,22 @@
 # 看有哪些模型/本金/持仓
 python3 -m paper_trader.broker list
 
-# 中信：信e投模拟盘默认 20 万，按 20 万生成多因子清单
+# 中信：优先按 3 万生成（模拟资金可自定义，20 万只是默认值）
+python3 -m paper_trader.broker orders --broker citic \
+  --family multifactor --model mf-lgbm --capital 30000 --out docs/broker_examples
+
+# 中信兜底：如果 App 资金设置最低只能 20 万，再用 20 万版本
 python3 -m paper_trader.broker orders --broker citic \
   --family multifactor --model mf-lgbm --capital 30000 \
   --capital-override 200000 --out docs/broker_examples
 
-# 同花顺：多因子 3 万（重点）
+# 同花顺：优先按 3 万生成；但 App 初始资金是档位（常见 10/20/50/100 万），
+# 没有 3 万档时用最小档（10 万）或 20 万，按比例缩放
 python3 -m paper_trader.broker orders --broker ths \
   --family multifactor --model mf-lgbm --capital 30000 --out docs/broker_examples
 
-# 同花顺：所有模型的 3 万清单
+# 同花顺：所有模型的 3 万清单（仅当模拟号支持该初始金额）
 python3 -m paper_trader.broker orders --broker ths --capital 30000 --out broker_orders/ths
-
-# 若实测中信 App 能设 3 万，再去掉 override 生成 3 万清单
-python3 -m paper_trader.broker orders --broker citic \
-  --family multifactor --model mf-lgbm --capital 30000 --out broker_orders/citic3
 
 # 已有持仓 → 生成差额单（CSV: symbol,shares,price）
 python3 -m paper_trader.broker orders --broker citic \
@@ -51,7 +52,7 @@ python3 -m paper_trader.broker orders --broker citic \
 
 1. 手机应用商店下载 **中信证券信e投**，用中信账户登录。
 2. 底部「行情」→「模拟交易」，或直接搜索「模拟盘」；同意《模拟交易服务协议》。
-3. 系统分配虚拟资金。公开操作整理称默认 **20 万**、可自定义最高 100 万；3 万是否可选以 App 为准，所以中信先按 **20 万** 生成（`--capital-override 200000`），数量等比放大、收益率不变。如果 App 实测能设 3 万，再用 3 万清单。
+3. 系统分配虚拟资金。公开操作说明称开通后可在**资金设置**里调整初始金额（上限 100 万），**20 万只是默认值、不是最低限额**，所以优先按 **3 万** 生成；如果 App 的资金设置实际只给固定档位/最低 20 万，再用 `--capital-override 200000` 的 20 万版本（数量等比放大，收益率不变）。
 4. 按 CSV 在「交易」里逐笔输入代码、数量、限价；成交后在「持仓」里核对。
 5. 下一期调仓时，把模拟盘持仓导出/抄成 `symbol,shares,price` 的 CSV，用 `--positions` 生成差额单。
 
@@ -60,13 +61,14 @@ python3 -m paper_trader.broker orders --broker citic \
 ## 4. 同花顺
 
 1. 同花顺 App →「模拟炒股」/「模拟交易」，开通模拟账户（虚拟资金）。
-2. 按清单逐笔下单；同花顺模拟盘的撮合、费用、整手规则以 App 为准（不同版本可能简化费用）。
+2. 同花顺模拟号创建时选的是**初始资金档位**（公开整理常见 10/20/50/100 万，App Store 写送 20 万），没有 3 万档；严格 3 万做不了。要用同花顺就选最小档（10 万）或 20 万，按比例缩放；要严格 3 万用中信或我们自己的 3 万账本。
+3. 按清单逐笔下单；同花顺模拟盘的撮合、费用、整手规则以 App 为准（不同版本可能简化费用）。
 3. 同花顺**没有公开的散户下单 API**；`easytrader` 之类通过模拟客户端点击的方案不稳定，也可能违反券商/平台条款，不建议用于真钱或长期自动运行。
 
 ## 5. 多模型怎么摆
 
 - 一个模拟账户对应一个「模型 × 本金」组合；账户名就是 `broker-family-model-capital`。
-- 如果模拟盘只能开一个账户：优先 **多因子（THS 3 万 / 中信 20 万，8 只，现金约 5.6%）**；本地/LLM 模型持仓多、30 万以下整手损耗大，建议用 10 万或 20 万账户，或只在看板里跟踪。
+- 如果模拟盘只能开一个账户：严格 3 万用 **中信**（资金设置可自定义）；同花顺用最小档 10 万或 20 万按比例缩放。多因子 8 只、现金约 5.6%；本地/LLM 模型持仓多、30 万以下整手损耗大，建议用 10 万或 20 万账户，或只在看板里跟踪。
 - 30 万以下常见问题：目标市值不到一手，清单会跳过该股、剩余现金偏高；`.md` 会给出提示。此时放大本金比硬凑整手更接近模型。
 - 当前可跟踪的 30k 组合：多因子 3 个变体 + 本地 5 个 + LLM 5 个，共 13 个；全部生成用 `--capital 30000`。
 
@@ -83,9 +85,9 @@ python3 -m paper_trader.broker orders --broker citic \
 
 ## 7. 需要你提供/确认
 
-1. **中信**：按 20 万生成（信e投默认 20 万）；如果 App 实测能设 3 万，我再换 3 万清单。
+1. **中信**：按 3 万生成（资金设置可自定义，20 万只是默认）；如果 App 实际最低只能 20 万，用 `--capital-override 200000` 的兜底版本。
 2. **中信量化**：QMT/PTrade 需要你本人找客户经理开通量化权限（常见 30/50 万门槛、Windows、安装包/激活码）；开通后再接 API，不需要现在决定。
-3. **同花顺**：用同花顺 App 的模拟炒股/模拟交易入口；模拟资金按 3 万生成，若只能 20 万用 `--capital-override 200000`。
+3. **同花顺**：初始资金是档位（常见 10/20/50/100 万），没有 3 万档；用最小档 10 万或 20 万按比例缩放，严格 3 万请用中信或自有账本。
 4. **先跟哪些模型**：建议先「多因子 3 万 + 本地 Transformer 3 万 + LLM GLM 3 万」，跑 1–2 个季度再扩。
 5. **成交回填**：每期调仓后把 `symbol,shares,price` 的持仓 CSV 发我（或贴截图），我用 `--positions` 生成差额单并核对。
 6. 不要把交易密码/短信验证码发给任何人或写进仓库；API 只用券商官方授权方式。
