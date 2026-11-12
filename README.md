@@ -139,8 +139,9 @@ scripts/deploy.sh --skip-export
 ## 本地算力结论（Mac mini M4 / 16GB）
 
 - 平台服务（行情、SQLite、回放、自训分数重放、调度、静态构建）全部在本机完成；回放 20+20 个组合的常驻内存 <100MB，峰值 <300MB。
-- 自训模型是小型网络（3–10 万参数），本地 CPU 重放分数矩阵即可；不跑 torch 训练。
-- LLM 推理按日调用 DeepSeek / 智谱 API，每天 5 次。16GB 统一内存能跑单个 7B/8B 量化模型，但同时服务 5 个当代模型不现实；需要完全本地推理时，可把 `models.py` 的 provider 指向本机 Ollama / MLX 的 OpenAI 兼容端点。
+- 自训模型是小型网络（3–10 万参数）。2026-11-12 在 M4/16GB、torch 2.15 + MPS 上实测：300 只有效股票 × 60×25 输入，单模型 1.6–93 ms；五条路线各跑一遍合计约 **0.11 秒/日（MPS）** 或 **0.32 秒/日（CPU）**，内存 <1GB。详见 [`docs/LOCAL_INFERENCE.md`](docs/LOCAL_INFERENCE.md)。
+- 本地只运行自训模型；LLM 家族按日调用云端 DeepSeek / 智谱 API，不在本机推理。16GB 同时服务 5 个当代 LLM 不现实。
+- 自训家族当前使用预计算分数矩阵（最后信号 10-30）；本机 torch 环境已就绪，更新 panel 特征后即可用 `latest_*.pt` 在本地打分产生新信号。
 
 ## 目录
 
@@ -156,10 +157,11 @@ paper_trader/
   runner.py        fetch / replay / daily / export / serve
   export.py        合并两个家族，生成前端 data.json
 web/               静态仪表盘（默认自训模型，可切 LLM）
-scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py
+scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / bench_local_models.py
 tests/             engine / 费用 / 权重归一化单元测试
 docs/screenshots/  before.png、after-*.png、local-*.png、llm-*.png
 docs/RESULTS.md    两个家族的回放结果快照
+docs/LOCAL_INFERENCE.md 自训模型本地推理实测
 docs/OPERATIONS.md 部署与运维
 ```
 
