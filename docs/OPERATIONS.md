@@ -5,7 +5,7 @@
 | 位置 | 组件 | 作用 |
 | --- | --- | --- |
 | Mac mini | `paper_trader` + SQLite | 行情、回放、撮合、估值、模型调用、导出 |
-| Mac mini | launchd `com.suyingke.papertrader.daily` | 工作日 15:35 触发 `scripts/daily.sh` |
+| Mac mini | launchd `com.suyingke.papertrader.daily` | 工作日 15:35 结算、17:10 重试 `scripts/daily.sh` |
 | 腾讯云 | Caddy | TLS、token 路径校验、静态文件 |
 | 腾讯云 | `/srv/paper/<token>/` | 仪表盘静态文件（只读挂载进 caddy） |
 | Cloudflare | `paper.suyingke.chat A 43.134.76.212` | DNS only，DNS-01 签发证书 |
@@ -13,8 +13,11 @@
 ## 日常
 
 ```bash
-# 手动结算今天 + 生成明天决策 + 重新部署
+# 手动结算今天 + 生成明天决策 + 重试失败模型 + 自训估值 + 重新部署
 python3 -m paper_trader.runner daily
+python3 -m paper_trader.runner retry
+python3 -m paper_trader.local_models --marks
+python3 -m paper_trader.runner export
 scripts/deploy.sh --skip-export
 
 # 只更新前端
@@ -75,7 +78,7 @@ python3 -m paper_trader.runner status
 
 - 数据源：`~/labs/VLA/Share/v2/local_data/`（`panel.npz`、`metadata.json`、五条路线的 `*_ensemble.npz` 分数矩阵；GDN 无 ensemble，使用三个种子均值）。
 - 重建：`python3 -m paper_trader.local_models` → `data/local_family.json`；再 `python3 -m paper_trader.runner export`。
-- 当前分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据），权益估值到 2026-11-09；要更新到更晚日期，需要在 lab 用 `latest_*.pt` 对新数据推理并导出新的分数矩阵。
+- 当前分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据）；之后由 `python3 -m paper_trader.local_models --marks` 每日用最新收盘价延续持仓估值，不会产生新信号。要产生新信号，需要在 lab 用 `latest_*.pt` 对新数据推理并导出新的分数矩阵。
 - 自训模型不需要 torch / pandas；系统 Python + numpy 即可。
 - 费用口径与 LLM 家族不同（0.10%/0.20% vs 万 2.5/万 5），不要跨家族直接比收益。
 

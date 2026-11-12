@@ -46,17 +46,18 @@ def _build_prompts(conn, day: str) -> dict:
     return prompts
 
 
-def generate_decisions(conn, day: str, only_missing: bool = False, max_workers: int = 5) -> dict:
+def generate_decisions(conn, day: str, only_missing: bool = False, only_errors: bool = False, max_workers: int = 5) -> dict:
     prompts = _build_prompts(conn, day)
     pending = []
     for model in config.MODELS:
-        if only_missing:
-            row = conn.execute(
-                "SELECT id FROM decisions WHERE model_id = ? AND date = ?",
-                (model["id"], day),
-            ).fetchone()
-            if row:
-                continue
+        row = conn.execute(
+            "SELECT id, error FROM decisions WHERE model_id = ? AND date = ?",
+            (model["id"], day),
+        ).fetchone()
+        if only_missing and row:
+            continue
+        if only_errors and (not row or not row["error"]):
+            continue
         pending.append(model)
     if not pending:
         return {}
@@ -219,6 +220,19 @@ def cmd_replay(args) -> None:
     log("已生成 %s（LLM %d 个组合，%d 个交易日）" % (path, len(llm["portfolios"]), llm["trade_days"]))
 
 
+def cmd_retry(args) -> None:
+    conn = store.connect()
+    ensure_data(conn, refresh=False)
+    day = args.date or conn.execute("SELECT MAX(date) AS d FROM decisions").fetchone()["d"]
+    if not day:
+        raise SystemExit("no decisions to retry")
+    log("重试 %s 的失败决策" % day)
+    generate_decisions(conn, day, only_errors=True)
+    path = config.WEB_DIR / "data.json"
+    payload = export.write_export(conn, path)
+    log("已重新生成 %s（截至 %s）" % (path, payload["families"]["llm"]["as_of"]))
+
+
 def cmd_daily(args) -> None:
     conn = store.connect()
     ensure_data(conn, refresh=True)
@@ -272,6 +286,10 @@ def main(argv=None) -> None:
     p_daily = sub.add_parser("daily", help="每日收盘后运行")
     p_daily.add_argument("--force", action="store_true")
     p_daily.set_defaults(func=cmd_daily)
+
+    p_retry = sub.add_parser("retry", help="重试最新交易日的失败决策")
+    p_retry.add_argument("--date", default="")
+    p_retry.set_defaults(func=cmd_retry)
 
     p_export = sub.add_parser("export", help="导出前端数据")
     p_export.add_argument("--out", default="")

@@ -18,6 +18,7 @@ import math
 import os
 import re
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Dict, List
 
@@ -447,6 +448,212 @@ def _portfolio(route, capital, rows, units, cost_basis, trades, names, panel, co
     }
 
 
+
+
+def _fetch_closes(symbols, start, end):
+    """Unadjusted daily closes from Tencent for the mark-to-market step."""
+    def fetch(symbol):
+        code = symbol
+        if symbol[:2] not in ("sh", "sz"):
+            if symbol.startswith("6"):
+                code = "sh" + symbol
+            elif symbol.startswith(("0", "3")):
+                code = "sz" + symbol
+            else:
+                code = "sh" + symbol
+        url = (
+            "https://web.ifzq.gtimg.cn/appstock/app/kline/kline"
+            "?param=%s,day,%s,%s,40" % (code, start, end)
+        )
+        try:
+            req = urllib.request.Request(
+                url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://gu.qq.com/"}
+            )
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(req, timeout=15) as resp:
+                payload = json.loads(resp.read().decode())
+            node = (payload.get("data") or {}).get(code) or {}
+            rows = node.get("day") or []
+            return symbol, {str(row[0]): float(row[2]) for row in rows}
+        except Exception:
+            return symbol, {}
+
+    out = {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = [pool.submit(fetch, symbol) for symbol in sorted(set(symbols))]
+        for future in as_completed(futures):
+            symbol, closes = future.result()
+            out[symbol] = closes
+    return out
+
+
+def _recompute_metrics(series, trades, capital):
+    equity = [item["total"] for item in series]
+    rets = [
+        equity[i] / equity[i - 1] - 1
+        for i in range(1, len(equity))
+        if equity[i - 1]
+    ]
+    peak = equity[0] if equity else capital
+    max_dd = 0.0
+    for value in equity:
+        peak = max(peak, value)
+        max_dd = min(max_dd, value / peak - 1)
+    if rets:
+        avg = sum(rets) / len(rets)
+        var = sum((r - avg) ** 2 for r in rets) / (len(rets) - 1) if len(rets) > 1 else 0
+        vol = math.sqrt(var) * math.sqrt(252)
+        sharpe = (avg * 252) / vol if vol else 0.0
+    else:
+        vol = 0.0
+        sharpe = 0.0
+    sells = [t for t in trades if t.get("side") == "sell"]
+    wins = sum(1 for t in sells if float(t.get("realized_pnl", 0)) > 0)
+    return {
+        "ret_pct": (equity[-1] / capital - 1) * 100 if equity else 0.0,
+        "max_drawdown": max_dd * 100,
+        "sharpe": sharpe,
+        "volatility": vol * 100,
+        "win_rate": (wins / len(sells) * 100) if sells else 0.0,
+        "trades": len(trades),
+        "turnover": sum(float(t.get("amount", 0)) for t in trades) / capital if capital else 0.0,
+    }
+
+
+def extend_marks(path=None):
+    """Append daily equity marks for held local-model positions.
+
+    No new model signal is produced; this is a mark-to-market continuation until
+    the lab re-exports scores for new dates.
+    """
+    path = Path(path or (config.DATA_DIR / "local_family.json"))
+    if not path.exists():
+        print("no local family to mark")
+        return None
+    family = json.loads(path.read_text(encoding="utf-8"))
+    conn = store.connect()
+    latest_row = conn.execute(
+        "SELECT MAX(date) AS d FROM bars WHERE symbol = 'sh000001'"
+    ).fetchone()
+    latest = latest_row["d"] if latest_row else family.get("as_of")
+    last_marked = family.get("as_of")
+    if not latest or not last_marked or latest <= last_marked:
+        print("local marks already current: %s" % last_marked)
+        return family
+    dates = []
+    row = conn.execute(
+        "SELECT date FROM bars WHERE symbol = 'sh000001' AND date > ? AND date <= ? ORDER BY date",
+        (last_marked, latest),
+    ).fetchall()
+    dates = [r["date"] for r in row]
+    if not dates:
+        print("no new trading days for local marks")
+        return family
+    symbols = sorted(
+        {pos["symbol"] for p in family["portfolios"] for pos in p["positions"]}
+    )
+    closes = _fetch_closes(symbols, last_marked, latest)
+    for portfolio in family["portfolios"]:
+        last_price = {pos["symbol"]: float(pos["price"]) for pos in portfolio["positions"]}
+        series = portfolio["series"]
+        cash = float(portfolio["cash"])
+        for day in dates:
+            market_value = 0.0
+            for pos in portfolio["positions"]:
+                symbol = pos["symbol"]
+                close = closes.get(symbol, {}).get(day)
+                if close is not None:
+                    last_price[symbol] = close
+                market_value += int(pos["shares"]) * last_price.get(symbol, float(pos["price"]))
+            total = cash + market_value
+            series.append(
+                {
+                    "date": day,
+                    "total": round(total, 2),
+                    "ret": round((total / float(portfolio["capital"]) - 1) * 100, 2)
+                    if portfolio["capital"]
+                    else 0.0,
+                }
+            )
+        total = series[-1]["total"]
+        prev = series[-2]["total"] if len(series) > 1 else total
+        portfolio["total"] = round(total, 2)
+        portfolio["ret_pct"] = round(
+            (total / float(portfolio["capital"]) - 1) * 100, 2
+        ) if portfolio["capital"] else 0.0
+        portfolio["today_pnl"] = round(total - prev, 2)
+        portfolio["today_pct"] = round((total / prev - 1) * 100, 2) if prev else 0.0
+        for pos in portfolio["positions"]:
+            symbol = pos["symbol"]
+            price = last_price.get(symbol, float(pos["price"]))
+            pos["price"] = round(price, 2)
+            pos["value"] = round(int(pos["shares"]) * price, 2)
+            pos["pnl"] = round((price - float(pos["avg_cost"])) * int(pos["shares"]), 2)
+            pos["pnl_pct"] = round(
+                (price / float(pos["avg_cost"]) - 1) * 100, 2
+            ) if float(pos["avg_cost"]) else 0.0
+            pos["weight"] = round(pos["value"] / total * 100, 2) if total else 0.0
+        old_metrics = dict(portfolio.get("metrics") or {})
+        new_metrics = _recompute_metrics(
+            series, portfolio["trades"], float(portfolio["capital"])
+        )
+        for key in ("trades", "win_rate", "turnover"):
+            new_metrics[key] = old_metrics.get(key, new_metrics[key])
+        portfolio["metrics"] = {
+            k: round(v, 2) for k, v in new_metrics.items()
+        }
+        if portfolio.get("decision"):
+            portfolio["decision"]["market_view"] = (
+                "5 日截面排序前 30 名；低换手缓冲 50，最多换 5 只；最后一次信号 %s；"
+                "持仓估值延续至 %s（暂无新信号）。"
+                % (family["meta"].get("last_signal", ""), latest)
+            )
+            portfolio["decision"]["targets"] = [
+                {
+                    "symbol": pos["symbol"],
+                    "name": pos["name"],
+                    "weight": pos["weight"],
+                    "reason": "当前持仓（估值延续）",
+                }
+                for pos in portfolio["positions"][:8]
+            ]
+
+    family["as_of"] = latest
+    family["trade_days"] = len(family["portfolios"][0]["series"]) if family["portfolios"] else 0
+    family["dates"] = [item["date"] for item in family["portfolios"][0]["series"]]
+    family["meta"]["end"] = latest
+    family["meta"]["valuation_note"] = "持仓估值至 %s；最后一次模型信号 %s" % (
+        latest,
+        family["meta"].get("last_signal", ""),
+    )
+    family["summary"]["current"] = round(sum(p["total"] for p in family["portfolios"]), 2)
+    family["summary"]["ret_pct"] = round(
+        (family["summary"]["current"] / family["summary"]["initial"] - 1) * 100, 2
+    ) if family["summary"].get("initial") else 0.0
+    family["summary"]["today_pnl"] = round(sum(p["today_pnl"] for p in family["portfolios"]), 2)
+    prev_total = family["summary"]["current"] - family["summary"]["today_pnl"]
+    family["summary"]["today_pct"] = round(
+        family["summary"]["today_pnl"] / prev_total * 100, 2
+    ) if prev_total else 0.0
+    for model in family["models"]:
+        items = [p for p in family["portfolios"] if p["model_id"] == model["id"]]
+        if items:
+            returns = [p["ret_pct"] for p in items]
+            best = max(items, key=lambda p: p["ret_pct"])
+            model["avg_ret"] = round(sum(returns) / len(returns), 2)
+            model["best_ret"] = best["ret_pct"]
+            model["best_capital"] = best["capital"]
+            model["latest_total"] = round(sum(p["total"] for p in items), 2)
+            model["decision_date"] = family["meta"].get("last_signal", model.get("decision_date"))
+    family["market"] = export._index_payload(conn, latest)
+    family["candles"] = export._index_candles(conn, latest)
+    family["benchmark"] = export._benchmark(conn, family["dates"])
+    family["generated_at"] = export.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    path.write_text(json.dumps(family, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print("local marks extended to %s" % latest)
+    return family
+
+
 def build_family() -> dict:
     panel = dict(np.load(VLA_DIR / "local_data" / "panel.npz", allow_pickle=False))
     metadata = json.loads((VLA_DIR / "local_data" / "metadata.json").read_text())
@@ -699,7 +906,11 @@ def build_family() -> dict:
 def main():
     parser = argparse.ArgumentParser(description="Build the self-trained model family")
     parser.add_argument("--out", default=str(config.DATA_DIR / "local_family.json"))
+    parser.add_argument("--marks", action="store_true", help="只更新持仓估值，不重新计算信号")
     args = parser.parse_args()
+    if args.marks:
+        extend_marks(args.out)
+        return
     family = build_family()
     path = Path(args.out)
     path.parent.mkdir(parents=True, exist_ok=True)
