@@ -1,0 +1,3 @@
+reports*/model.pt
+reports*/scores_*.npy
+__pycache__/

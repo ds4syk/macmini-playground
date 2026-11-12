@@ -1,0 +1,212 @@
+{
+  "parameters": 489907,
+  "parameter_mib": 1.87,
+  "train_seconds": 47.1,
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 13.161,
+      "train_fm": 0.0,
+      "train_recon": 13.16,
+      "val_loss": 3.876,
+      "val_fm": 3.094,
+      "val_recon": 7.82,
+      "seconds": 2.78
+    },
+    {
+      "epoch": 2,
+      "train_loss": 8.322,
+      "train_fm": 0.0,
+      "train_recon": 8.32,
+      "val_loss": 3.494,
+      "val_fm": 2.854,
+      "val_recon": 6.4,
+      "seconds": 2.41
+    },
+    {
+      "epoch": 3,
+      "train_loss": 2.683,
+      "train_fm": 1.49,
+      "train_recon": 11.93,
+      "val_loss": 2.192,
+      "val_fm": 1.163,
+      "val_recon": 10.29,
+      "seconds": 3.81
+    },
+    {
+      "epoch": 4,
+      "train_loss": 2.441,
+      "train_fm": 1.312,
+      "train_recon": 11.29,
+      "val_loss": 2.07,
+      "val_fm": 1.145,
+      "val_recon": 9.24,
+      "seconds": 4.52
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.409,
+      "train_fm": 1.347,
+      "train_recon": 10.62,
+      "val_loss": 2.061,
+      "val_fm": 1.14,
+      "val_recon": 9.2,
+      "seconds": 3.74
+    },
+    {
+      "epoch": 6,
+      "train_loss": 2.371,
+      "train_fm": 1.325,
+      "train_recon": 10.45,
+      "val_loss": 1.991,
+      "val_fm": 1.111,
+      "val_recon": 8.8,
+      "seconds": 3.82
+    },
+    {
+      "epoch": 7,
+      "train_loss": 2.422,
+      "train_fm": 1.325,
+      "train_recon": 10.97,
+      "val_loss": 2.047,
+      "val_fm": 1.104,
+      "val_recon": 9.44,
+      "seconds": 4.8
+    },
+    {
+      "epoch": 8,
+      "train_loss": 2.558,
+      "train_fm": 1.281,
+      "train_recon": 12.77,
+      "val_loss": 2.159,
+      "val_fm": 1.091,
+      "val_recon": 10.69,
+      "seconds": 4.18
+    },
+    {
+      "epoch": 9,
+      "train_loss": 2.595,
+      "train_fm": 1.227,
+      "train_recon": 13.68,
+      "val_loss": 2.234,
+      "val_fm": 1.114,
+      "val_recon": 11.2,
+      "seconds": 3.73
+    },
+    {
+      "epoch": 10,
+      "train_loss": 2.562,
+      "train_fm": 1.226,
+      "train_recon": 13.36,
+      "val_loss": 2.311,
+      "val_fm": 1.233,
+      "val_recon": 10.78,
+      "seconds": 4.12
+    },
+    {
+      "epoch": 11,
+      "train_loss": 2.578,
+      "train_fm": 1.228,
+      "train_recon": 13.49,
+      "val_loss": 2.431,
+      "val_fm": 1.343,
+      "val_recon": 10.89,
+      "seconds": 4.55
+    },
+    {
+      "epoch": 12,
+      "train_loss": 2.591,
+      "train_fm": 1.243,
+      "train_recon": 13.47,
+      "val_loss": 2.493,
+      "val_fm": 1.384,
+      "val_recon": 11.09,
+      "seconds": 4.62
+    }
+  ],
+  "dates": {
+    "train": 1455,
+    "validation": 478,
+    "test": 683
+  },
+  "config": {
+    "panel_dir": "~/labs/VLA/Share/v2/local_data",
+    "lookback": 20,
+    "horizon": 5,
+    "group_size": 8,
+    "dim": 96,
+    "depth": 3,
+    "heads": 6,
+    "mlp_ratio": 2,
+    "batch_dates": 6,
+    "epochs": 12,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "grad_clip": 1.0,
+    "recon_weight": 0.1,
+    "gen_steps": 6,
+    "probe_epochs": 20,
+    "seed": 42,
+    "train_start": "2016-01-01",
+    "train_end": "2021-12-31",
+    "validation_start": "2022-01-01",
+    "validation_end": "2023-12-31",
+    "test_start": "2024-01-01",
+    "test_end": "2026-11-09",
+    "max_eval_dates": 40,
+    "portfolio_size": 30,
+    "buffer_size": 50,
+    "max_replace": 5,
+    "rebalance_days": 5,
+    "buy_cost": 0.001,
+    "sell_cost": 0.002,
+    "vae_warmup_epochs": 2
+  },
+  "note": "lab Slurm job 2734; generated_only/oracle probes were not run to completion",
+  "generated": {
+    "val_ic_mean": 0.0423,
+    "val_ic_std": 0.0,
+    "test_ic_mean": 0.04425764718659513,
+    "test_ic_std": 0.18051765708508208,
+    "test_ic_days": 683,
+    "backtest": {
+      "total_return": 0.34470025979856,
+      "annualized_return": 0.1145840512492684,
+      "annualized_volatility": 0.2119345328804864,
+      "sharpe_zero_cash_rate": 0.6159816868736214,
+      "max_drawdown": -0.31360587050240607,
+      "trading_days": 688.0,
+      "annualized_traded_notional": 17.21646127963463,
+      "annualized_cost_fraction": 0.02583614792734452,
+      "total_cost_fraction": 0.07053678481751202,
+      "average_holdings": 29.949127906976745,
+      "end_held_positions": 0.0,
+      "blocked_buys": 3.0,
+      "blocked_sells": 9.0,
+      "days_with_trades": 138.0
+    }
+  },
+  "context": {
+    "val_ic_mean": 0.0306,
+    "val_ic_std": 0.0,
+    "test_ic_mean": 0.03664284479619905,
+    "test_ic_std": 0.17486744687202282,
+    "test_ic_days": 683,
+    "backtest": {
+      "total_return": 0.4431629241350372,
+      "annualized_return": 0.1438099837380089,
+      "annualized_volatility": 0.2006427194704484,
+      "sharpe_zero_cash_rate": 0.7688835074043003,
+      "max_drawdown": -0.21358888958142064,
+      "trading_days": 688.0,
+      "annualized_traded_notional": 17.09069058549023,
+      "annualized_cost_fraction": 0.025648699498177996,
+      "total_cost_fraction": 0.0700250208521685,
+      "average_holdings": 29.976744186046513,
+      "end_held_positions": 0.0,
+      "blocked_buys": 2.0,
+      "blocked_sells": 21.0,
+      "days_with_trades": 140.0
+    }
+  }
+}
