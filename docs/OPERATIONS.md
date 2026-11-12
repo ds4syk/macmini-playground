@@ -78,7 +78,7 @@ python3 -m paper_trader.runner status
 
 - 数据源：`~/labs/VLA/Share/multifactor/local_export/`（lab 训练的 `panel.npz`、`metadata.json`、三个变体的月度分数矩阵、`metrics.json`）。
 - 重建：lab 跑 `experiments/multifactor_smallcap/multifactor.sbatch` → rsync `local_export/` 回 Mac mini → `python3 -m paper_trader.multifactor` → `python3 -m paper_trader.runner export`。
-- 这是**历史回放快照**，不是每日信号：季度调仓，最近一次调仓 2026-09-30（最新打分 2026-10-30），持仓按最后交易日收盘估值。重新训练后才需要刷新。
+- 这是**历史回放快照**，不是每日信号：季度调仓、按本金自适应 4–40 只，最近一次调仓 2026-09-30（最新打分 2026-10-30），持仓按最后交易日收盘估值。重新训练后才需要刷新。
 - 前端通过 `data/multifactor_family.json` 是否存在决定是否展示第三个家族；文件缺失时 `export` 只输出两个家族。
 
 ## 自训模型家族

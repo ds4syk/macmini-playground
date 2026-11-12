@@ -19,11 +19,19 @@ from typing import Dict, List
 
 import numpy as np
 
+# Production allocation is capital-aware: a 30k account cannot buy 50
+# different small caps in 100-share lots, so it holds fewer, fully funded
+# names.  Sizes were selected on the 2022-2023 validation window (see
+# experiments/multifactor_smallcap/tune_capital.py).
 DEFAULTS = {
-    "portfolio_size": 50,
-    "buffer_size": 50,
-    "max_replace": 50,
+    "portfolio_size": {10000: 4, 30000: 8, 50000: 10, 100000: 40},
+    "buffer_size": {10000: 4, 30000: 8, 50000: 10, 100000: 40},
+    "max_replace": {10000: 4, 30000: 8, 50000: 10, 100000: 40},
     "rebalance_stride": 3,
+    "lot_aware": False,
+    "sweep_mode": "round_robin",
+    "max_weight_mult": 2.0,
+    "afford_mult": 1.5,
     "buy_cost": 0.001,
     "sell_cost": 0.002,
     "min_fee": 5.0,
@@ -49,6 +57,24 @@ def price_limit(code: str, is_st: bool) -> float:
     return 0.10
 
 
+def min_buy_shares(code: str) -> int:
+    """A-share buy minimum: 100 shares on the main board, 200 on STAR."""
+    body = code.replace("sh.", "").replace("sz.", "")
+    return 200 if body.startswith(("688", "689")) else 100
+
+
+def round_buy_shares(code: str, shares: float) -> int:
+    """Round a desired buy to the exchange rule.
+
+    Main board: multiples of 100.  STAR: at least 200, then 1-share increments.
+    """
+    body = code.replace("sh.", "").replace("sz.", "")
+    shares = int(max(0, shares))
+    if body.startswith(("688", "689")):
+        return shares if shares >= 200 else 0
+    return (shares // 100) * 100
+
+
 def target_shares(indices, value, prices, codes):
     result = np.zeros(len(codes), dtype=np.int64)
     for index in indices:
@@ -56,9 +82,22 @@ def target_shares(indices, value, prices, codes):
         price = float(prices[index])
         if price <= 0:
             continue
-        lot = lot_size(codes[index])
-        result[index] = int(value // (price * lot)) * lot
+        shares = round_buy_shares(codes[index], value // price)
+        minimum = min_buy_shares(codes[index])
+        if shares == 0 and value >= price * minimum:
+            shares = minimum
+        result[index] = shares
     return result
+
+
+def per_capital(value, capital: float):
+    if isinstance(value, dict):
+        if capital in value:
+            return value[capital]
+        if str(int(capital)) in value:
+            return value[str(int(capital))]
+        return next(iter(value.values()))
+    return value
 
 
 def run(
@@ -84,10 +123,14 @@ def run(
     p = dict(DEFAULTS)
     if params:
         p.update(params)
-    portfolio_size = int(p["portfolio_size"])
-    buffer_size = int(p["buffer_size"])
-    max_replace = int(p["max_replace"])
+    portfolio_size = int(per_capital(p["portfolio_size"], capital))
+    buffer_size = int(per_capital(p["buffer_size"], capital))
+    max_replace = int(per_capital(p["max_replace"], capital))
     rebalance_stride = max(1, int(p.get("rebalance_stride", 1)))
+    lot_aware = bool(p.get("lot_aware", False))
+    sweep_mode = str(p.get("sweep_mode", "top"))
+    max_weight_mult = float(p.get("max_weight_mult", 2.0))
+    afford_mult = float(p.get("afford_mult", 1.5))
     buy_cost = float(p["buy_cost"])
     sell_cost = float(p["sell_cost"])
     min_fee = float(p["min_fee"])
@@ -137,13 +180,35 @@ def run(
             candidates = [int(index) for index in ranked if int(index) not in held_set]
             gaps = max(0, portfolio_size - len(held))
             capacity = max(0, min(portfolio_size - len(keep), max_replace + gaps))
-            purchases = candidates[:capacity]
-            target = np.zeros(len(stocks), dtype=np.int64)
+            target = units.copy()
             target[sells] = 0
-            buy_target = target_shares(
-                purchases, equity_open / max(portfolio_size, 1), prices, stocks
-            )
-            target[purchases] = buy_target[purchases]
+            target_value = equity_open / max(portfolio_size, 1)
+            if lot_aware:
+                # Skip names whose one lot is far above the target weight, then
+                # fill up to capacity with affordable names.
+                purchases = []
+                for index in candidates:
+                    if len(purchases) >= capacity:
+                        break
+                    price = float(prices[index])
+                    if price <= 0:
+                        continue
+                    if price * min_buy_shares(stocks[index]) <= target_value * afford_mult:
+                        purchases.append(index)
+                for index in purchases:
+                    price = float(prices[index])
+                    shares = round_buy_shares(stocks[index], target_value // price)
+                    minimum = min_buy_shares(stocks[index])
+                    if shares == 0 and price * minimum <= target_value * afford_mult:
+                        shares = minimum
+                    cap = round_buy_shares(
+                        stocks[index], target_value * max_weight_mult // price
+                    )
+                    target[index] = min(shares, cap)
+            else:
+                purchases = candidates[:capacity]
+                buy_target = target_shares(purchases, target_value, prices, stocks)
+                target[purchases] = buy_target[purchases]
         else:
             target = units.copy()
 
@@ -199,14 +264,16 @@ def run(
                 price = float(prices[index])
                 if price <= 0:
                     continue
-                lot = lot_size(stocks[index])
+                body = stocks[index].replace("sh.", "").replace("sz.", "")
+                step = 1 if body.startswith(("688", "689")) else 100
                 affordable = int(cash // max(price, 1e-9))
-                shares = min(desired, (affordable // lot) * lot, int(liquidity_shares[index] // lot) * lot)
+                shares = min(desired, affordable, int(liquidity_shares[index]))
+                shares = round_buy_shares(stocks[index], shares)
                 while shares > 0:
                     notional = shares * price
                     if notional + fee(notional, buy_cost, min_fee) <= cash + 1e-9:
                         break
-                    shares -= lot
+                    shares = round_buy_shares(stocks[index], shares - step)
                 if shares <= 0:
                     continue
                 notional = shares * price
@@ -230,6 +297,56 @@ def run(
                         "reason": "多因子打分买入",
                     }
                 )
+
+        if day > start and (day - 1) in rebalance_days and lot_aware:
+            # Use residual cash to add whole lots, up to max_weight_mult times
+            # the equal target weight.  ``round_robin`` spreads the extra lots
+            # across names instead of concentrating them in the top name.
+            cap_value = target_value * max_weight_mult
+            order = [int(index) for index in ranked] if ranked is not None else []
+            order = [index for index in order if units[index] > 0 and can_buy[index]]
+            while order:
+                bought = False
+                for index in order:
+                    price = float(prices[index])
+                    minimum = min_buy_shares(stocks[index])
+                    if cash < price * minimum * (1 + buy_cost) + min_fee:
+                        continue
+                    if (units[index] + minimum) * price > cap_value:
+                        continue
+                    if liquidity_shares[index] < minimum:
+                        continue
+                    notional = price * minimum
+                    cost = fee(notional, buy_cost, min_fee)
+                    if notional + cost > cash + 1e-9:
+                        continue
+                    cash -= notional + cost
+                    cost_basis[index] += notional + cost
+                    units[index] += minimum
+                    liquidity_shares[index] -= minimum
+                    total_fees += cost
+                    traded += notional
+                    daily_fee += cost
+                    trades.append(
+                        {
+                            "date": dates[day],
+                            "symbol": stocks[index],
+                            "side": "buy",
+                            "shares": minimum,
+                            "price": price,
+                            "amount": notional,
+                            "fee": cost,
+                            "realized_pnl": 0.0,
+                            "reason": "现金补仓（整手投满）",
+                        }
+                    )
+                    bought = True
+                    if sweep_mode != "round_robin":
+                        break
+                if not bought:
+                    break
+                if sweep_mode != "round_robin":
+                    break
 
         equity = cash + float(np.dot(units, prices))
         if not np.isfinite(equity) or equity <= 0 or cash < -1e-6 or np.any(units < 0):

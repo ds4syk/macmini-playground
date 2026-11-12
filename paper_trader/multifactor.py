@@ -31,7 +31,7 @@ MODELS = [
         "name": "多因子 LightGBM",
         "short": "多因子 LGBM",
         "color": "#c62828",
-        "note": "14 因子 · LightGBM 3 种子 · 季度调仓",
+        "note": "14 因子 · LightGBM 3 种子 · 按本金 4–40 只",
     },
     {
         "route": "mf_equal",
@@ -39,7 +39,7 @@ MODELS = [
         "name": "多因子等权",
         "short": "多因子等权",
         "color": "#1f6feb",
-        "note": "14 因子截面 z 分数等权 · 季度调仓",
+        "note": "14 因子截面 z 分数等权 · 按本金 4–40 只",
     },
     {
         "route": "mf_size",
@@ -47,7 +47,7 @@ MODELS = [
         "name": "纯小市值",
         "short": "小市值",
         "color": "#0a9b5a",
-        "note": "只按流通市值最小排序 · 季度调仓",
+        "note": "只按流通市值最小排序 · 按本金 4–40 只",
     },
 ]
 CAPITALS = [(10000, "1万"), (30000, "3万"), (50000, "5万"), (100000, "10万")]
@@ -76,6 +76,7 @@ def build_portfolio(
     names: Dict[str, str],
     metrics: Dict[str, float],
     last_close: np.ndarray,
+    size: int,
     end: int,
 ) -> dict:
     dates = metadata["dates"]
@@ -128,9 +129,9 @@ def build_portfolio(
     decision = {
         "date": dates[signal_day],
         "market_view": (
-            "小市值池内 14 因子截面打分，取前 50 名；季度调仓、全量换成前 50 名；"
+            "小市值池内 14 因子截面打分，按本金取前 %d 名；季度调仓、全量换仓；"
             "信号 %s 收盘生成，下一交易日收盘成交；持仓估值至 %s。"
-            % (dates[signal_day], dates[end])
+            % (size, dates[signal_day], dates[end])
         ),
         "confidence": 0.0,
         "targets": [
@@ -220,6 +221,7 @@ def build_family() -> dict:
                     names,
                     metrics,
                     last_close,
+                    int(account.per_capital(params["portfolio_size"], capital)),
                     end,
                 )
             )
@@ -363,7 +365,7 @@ def build_family() -> dict:
             "capital": [value for value, _ in CAPITALS],
             "capital_labels": {str(value): label for value, label in CAPITALS},
             "universe_title": "最新打分 · 多因子 LightGBM",
-            "method": "季度调仓 · 全 A 股小市值池（流通市值最小 30%）· 14 因子",
+            "method": "季度调仓 · 全 A 股小市值池 · 按本金 4–40 只 · 14 因子",
             "fee_note": "买卖 0.10%/0.20%，每笔最低 5 元，单票不超过流通市值 1%",
             "provenance": {
                 "train": "2018–2021",
@@ -382,7 +384,7 @@ def build_family() -> dict:
             "kpi_unit": "季度调仓",
             "benchmark_label": "全市场等权",
             "chart_sub": "三个多因子变体在同一本金下的收益率对比",
-            "kpi_sub": "个组合 · 季度调仓 · 小市值池",
+            "kpi_sub": "个组合 · 按本金 4–40 只 · 季度调仓",
             "metric_label": "测试 IC",
             "decision_label": "最近一次季度调仓",
             "universe_note": "小市值池内打分前 30 名",

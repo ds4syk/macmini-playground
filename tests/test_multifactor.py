@@ -72,6 +72,37 @@ class MultifactorAccountTest(unittest.TestCase):
         )
         self.assertTrue(all(np.isfinite(row["equity"]) and row["equity"] > 0 for row in rows))
 
+    def test_buffer_preserves_held_positions(self):
+        score = np.full((10, self.days), np.nan, dtype=np.float32)
+        for day in range(20, self.days, 21):
+            score[:3, day] = 1.0
+            score[3:6, day] = 0.5
+            score[6:, day] = 0.0
+        rows, units, cost_basis, trades, fees = account.run(
+            self.dates,
+            self.stocks,
+            self.close,
+            self.pct,
+            self.mcap,
+            self.is_st,
+            self.tradable,
+            score,
+            100000,
+            20,
+            self.days - 1,
+            {"portfolio_size": 3, "buffer_size": 3, "max_replace": 3, "rebalance_stride": 1},
+        )
+        # The same three names stay in the top 3, so the buffer rule must keep
+        # them instead of liquidating and rebuying every rebalance.
+        self.assertEqual([trade for trade in trades if trade["side"] == "sell"], [])
+
+    def test_capital_mapping_and_star_lot(self):
+        self.assertEqual(account.per_capital({10000: 4, 30000: 15}, 30000), 15)
+        self.assertEqual(account.min_buy_shares("sh.688001"), 200)
+        self.assertEqual(account.round_buy_shares("sh.688001", 250), 250)
+        self.assertEqual(account.round_buy_shares("sh.688001", 150), 0)
+        self.assertEqual(account.round_buy_shares("sh.600000", 250), 200)
+
     def test_lot_and_fee(self):
         self.assertEqual(account.lot_size("sh.688001"), 200)
         self.assertEqual(account.lot_size("sh.600000"), 100)

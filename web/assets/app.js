@@ -136,7 +136,7 @@
     for (const [key, family] of Object.entries(state.families || {})) {
       let best = null;
       for (const portfolio of family.portfolios || []) {
-        if (Number(portfolio.capital) !== 100000) continue;
+        if (Number(portfolio.capital) !== 30000) continue;
         const series = (portfolio.series || []).filter((point) => point.date >= windowStart);
         if (series.length < 2) continue;
         const ret = (series[series.length - 1].total / series[0].total - 1) * 100;
@@ -176,7 +176,7 @@
       <div class="card-head">
         <div>
           <h2>家族对比 · ${windowStart} 起</h2>
-          <p>统一 10 万本金与区间；各家族标的池、调仓频率与费用口径不同，收益不可直接比较</p>
+          <p>统一 3 万本金与区间；各家族标的池、调仓频率与费用口径不同，收益不可直接比较</p>
         </div>
       </div>
       <table class="compare-table">
