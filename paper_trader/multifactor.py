@@ -31,7 +31,7 @@ MODELS = [
         "name": "多因子 LightGBM",
         "short": "多因子 LGBM",
         "color": "#c62828",
-        "note": "14 因子 · LightGBM 3 种子 · 月度调仓",
+        "note": "14 因子 · LightGBM 3 种子 · 季度调仓",
     },
     {
         "route": "mf_equal",
@@ -39,7 +39,7 @@ MODELS = [
         "name": "多因子等权",
         "short": "多因子等权",
         "color": "#1f6feb",
-        "note": "14 因子截面 z 分数等权 · 月度调仓",
+        "note": "14 因子截面 z 分数等权 · 季度调仓",
     },
     {
         "route": "mf_size",
@@ -47,7 +47,7 @@ MODELS = [
         "name": "纯小市值",
         "short": "小市值",
         "color": "#0a9b5a",
-        "note": "只按流通市值最小排序 · 月度调仓",
+        "note": "只按流通市值最小排序 · 季度调仓",
     },
 ]
 CAPITALS = [(10000, "1万"), (30000, "3万"), (50000, "5万"), (100000, "10万")]
@@ -128,7 +128,7 @@ def build_portfolio(
     decision = {
         "date": dates[signal_day],
         "market_view": (
-            "小市值池内 14 因子截面打分，取前 50 名；缓冲 80 名、单月最多换 50 只；"
+            "小市值池内 14 因子截面打分，取前 50 名；季度调仓、全量换成前 50 名；"
             "信号 %s 收盘生成，下一交易日收盘成交；持仓估值至 %s。"
             % (dates[signal_day], dates[end])
         ),
@@ -171,7 +171,10 @@ def build_family() -> dict:
         raise SystemExit("invalid multifactor start %s" % LOCAL_START)
     signal_days = sorted(metadata["signal_days"])
     start_signal = max(day for day in signal_days if day < start) if any(day < start for day in signal_days) else signal_days[0]
-    last_signal = signal_days[-1]
+    params = json.loads((MF_DIR / "config.json").read_text(encoding="utf-8")) if (MF_DIR / "config.json").exists() else {}
+    stride = max(1, int(params.get("rebalance_stride", 1)))
+    last_rebalance = signal_days[::stride][-1]
+    latest_score = signal_days[-1]
     end = len(dates) - 1
     last_close = np.full(len(stocks), np.nan)
     close_matrix = panel["close"]
@@ -213,7 +216,7 @@ def build_family() -> dict:
                     trimmed_trades,
                     panel,
                     metadata,
-                    last_signal,
+                    last_rebalance,
                     names,
                     metrics,
                     last_close,
@@ -245,9 +248,9 @@ def build_family() -> dict:
                 "avg_ret": round(sum(returns) / len(returns), 2) if returns else 0,
                 "best_capital": best["capital"] if best else 0,
                 "best_ret": best["ret_pct"] if best else 0,
-                "market_view": "测试 Rank IC %.3f · 小市值池内月度排序" % ic if ic is not None else "小市值池内月度排序",
+                "market_view": "测试 Rank IC %.3f · 小市值池内季度调仓" % ic if ic is not None else "小市值池内季度调仓",
                 "confidence": 0,
-                "decision_date": dates[last_signal],
+                "decision_date": dates[last_rebalance],
                 "trade_count": sum(item["metrics"]["trades"] for item in items),
                 "latest_total": round(sum(item["total"] for item in items), 2),
                 "params": "14 因子",
@@ -255,7 +258,7 @@ def build_family() -> dict:
             }
         )
 
-    last_signal_scores = scores["mf_lgbm"][:, last_signal]
+    last_signal_scores = scores["mf_lgbm"][:, latest_score]
     order = np.argsort(-last_signal_scores, kind="stable")
     top = [int(index) for index in order[:30] if np.isfinite(last_signal_scores[index])]
     universe = []
@@ -355,11 +358,12 @@ def build_family() -> dict:
         "meta": {
             "start": dates[start],
             "end": dates[end],
-            "last_signal": dates[last_signal],
+            "last_signal": dates[last_rebalance],
+            "latest_score": dates[latest_score],
             "capital": [value for value, _ in CAPITALS],
             "capital_labels": {str(value): label for value, label in CAPITALS},
             "universe_title": "最新打分 · 多因子 LightGBM",
-            "method": "月度调仓 · 全 A 股小市值池（流通市值最小 30%）· 14 因子",
+            "method": "季度调仓 · 全 A 股小市值池（流通市值最小 30%）· 14 因子",
             "fee_note": "买卖 0.10%/0.20%，每笔最低 5 元，单票不超过流通市值 1%",
             "provenance": {
                 "train": "2018–2021",
@@ -369,16 +373,18 @@ def build_family() -> dict:
                 "leakage": "测试区间 2024–2026 已被查看，不是严格前向；股票池为当前上市股票，存在幸存者偏差。",
             },
             "disclaimer": "模拟盘，仅供策略研究，不构成投资建议。多因子小市值口径与沪深300/LLM 家族不同，跨家族收益不可直接比较。",
-            "valuation_note": "持仓按最新收盘估值至 %s；最后一次月度信号 %s。" % (dates[end], dates[last_signal]),
+            "valuation_note": "持仓按最新收盘估值至 %s；最近一次季度调仓 %s；最新打分 %s。" % (
+                dates[end], dates[last_rebalance], dates[latest_score]
+            ),
             "kind": "quant",
-            "status_label": "多因子 · 月度调仓",
-            "chart_method": "2024 起月度回放",
-            "kpi_unit": "月度调仓",
+            "status_label": "多因子 · 季度调仓",
+            "chart_method": "2024 起季度回放",
+            "kpi_unit": "季度调仓",
             "benchmark_label": "全市场等权",
             "chart_sub": "三个多因子变体在同一本金下的收益率对比",
-            "kpi_sub": "个组合 · 月度调仓 · 小市值池",
+            "kpi_sub": "个组合 · 季度调仓 · 小市值池",
             "metric_label": "测试 IC",
-            "decision_label": "最后一次月度信号",
+            "decision_label": "最近一次季度调仓",
             "universe_note": "小市值池内打分前 30 名",
         },
     }

@@ -28,21 +28,21 @@ MODEL_META = {
         "name": "多因子 LightGBM",
         "short": "多因子 LGBM",
         "color": "#c62828",
-        "note": "16 因子 · LightGBM 3 种子 · 月度调仓",
+        "note": "14 因子 · LightGBM 3 种子 · 季度调仓",
     },
     "mf_equal": {
         "id": "mf-equal",
         "name": "多因子等权",
         "short": "多因子等权",
         "color": "#1f6feb",
-        "note": "16 因子截面 z 分数等权 · 月度调仓",
+        "note": "14 因子截面 z 分数等权 · 季度调仓",
     },
     "mf_size": {
         "id": "mf-size",
         "name": "纯小市值",
         "short": "小市值",
         "color": "#0a9b5a",
-        "note": "只按流通市值最小排序 · 月度调仓",
+        "note": "只按流通市值最小排序 · 季度调仓",
     },
 }
 
@@ -94,9 +94,9 @@ def main() -> None:
     (OUT / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=1), encoding="utf-8")
     config = {
         "portfolio_size": 50,
-        "buffer_size": 80,
+        "buffer_size": 50,
         "max_replace": 50,
-        "rebalance_days": 21,
+        "rebalance_stride": 3,
         "buy_cost": 0.001,
         "sell_cost": 0.002,
         "min_fee": 5.0,

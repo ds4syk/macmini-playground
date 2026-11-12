@@ -21,8 +21,9 @@ import numpy as np
 
 DEFAULTS = {
     "portfolio_size": 50,
-    "buffer_size": 80,
+    "buffer_size": 50,
     "max_replace": 50,
+    "rebalance_stride": 3,
     "buy_cost": 0.001,
     "sell_cost": 0.002,
     "min_fee": 5.0,
@@ -86,12 +87,14 @@ def run(
     portfolio_size = int(p["portfolio_size"])
     buffer_size = int(p["buffer_size"])
     max_replace = int(p["max_replace"])
+    rebalance_stride = max(1, int(p.get("rebalance_stride", 1)))
     buy_cost = float(p["buy_cost"])
     sell_cost = float(p["sell_cost"])
     min_fee = float(p["min_fee"])
     liquidity = float(p["liquidity"])
 
-    signal_days = {day for day in range(start, end + 1) if np.isfinite(score[:, day]).any()}
+    signal_days = sorted(day for day in range(start, end + 1) if np.isfinite(score[:, day]).any())
+    rebalance_days = set(signal_days[::rebalance_stride])
     units = np.zeros(len(stocks), dtype=np.int64)
     cash = float(capital)
     cost_basis = np.zeros(len(stocks), dtype=float)
@@ -117,7 +120,7 @@ def run(
         daily_fee = 0.0
         ranked = None
 
-        if day > start and (day - 1) in signal_days:
+        if day > start and (day - 1) in rebalance_days:
             ranks = np.full(len(stocks), np.inf)
             values = score[:, day - 1]
             finite = np.isfinite(values)
@@ -187,7 +190,7 @@ def run(
                 }
             )
 
-        if day > start and (day - 1) in signal_days:
+        if day > start and (day - 1) in rebalance_days:
             for index in ranked if ranked is not None else []:
                 index = int(index)
                 desired = int(target[index] - units[index])
