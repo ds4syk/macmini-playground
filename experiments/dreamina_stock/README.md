@@ -81,7 +81,7 @@
 
 图：[training.png](reports/training.png)（FM/重建损失）、[equity.png](reports/equity.png)（16 股/patch 的三条净值曲线）；8 股/patch 的对应图在 `reports_g8/`。原始分数矩阵在 `reports*/scores_*.npy`，逐日指标在 `reports*/metrics.json`。
 
-**probe 种子噪声**：同一份上下文特征，用 6 个随机种子重训 probe，测试 IC = **0.048 ± 0.008**（范围 0.036–0.057，见 `reports/probe_variance.csv`）。上表里生成 0.0388/0.0470、对照 0.0539/0.0366 都落在这一区间内——所以"生成 vs 不生成"的差异不能按点估计去读。
+**probe 种子噪声**：同一份上下文特征，用 6 个随机种子重训 probe，测试 IC = **0.048 ± 0.008**（范围 0.036–0.057，见 `reports/probe_variance.csv`）。上表里生成 0.0423/0.0443、对照 0.0539/0.0366 都落在这一区间内——所以"生成 vs 不生成"的差异不能按点估计去读。
 
 **怎么读这张表**：
 
