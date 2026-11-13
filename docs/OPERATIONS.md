@@ -85,7 +85,7 @@ python3 -m paper_trader.runner status
 
 - 数据源：`~/labs/VLA/Share/v2/local_data/`（`panel.npz`、`metadata.json`、五条路线的 `*_ensemble.npz` 分数矩阵；GDN 无 ensemble，使用三个种子均值）。
 - 重建：`python3 -m paper_trader.local_models` → `data/local_family.json`；再 `python3 -m paper_trader.runner export`。
-- 当前分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据）；之后由 `python3 -m paper_trader.local_models --marks` 每日用最新收盘价延续持仓估值，不会产生新信号。要产生新信号，需要在 lab 用 `latest_*.pt` 对新数据推理并导出新的分数矩阵。
+- 当前已补算到 2026-11-12：BaoStock 增量日线 → 本地 `local_panel/src/prepare.py` 重建 panel → `latest_*.pt` 本机打分 → 重跑 `local_models`。`--marks` 仍可在没有新分数时延续持仓估值。完整步骤见 `docs/DATA_SOURCES.md`。
 - 自训模型不需要 torch / pandas；系统 Python + numpy 即可。
 - 费用口径与 LLM 家族不同（0.10%/0.20% vs 万 2.5/万 5），不要跨家族直接比收益。
 

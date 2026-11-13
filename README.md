@@ -13,7 +13,7 @@
 ## 当前实例
 
 - 仪表盘：`https://paper.suyingke.chat/<token>/`（token 只保存在本机 `~/.config/paper-trader/deploy.env`，不进入仓库）
-- 自训模型：5 × 4 = 20 个账本；信号截至 2026-10-30，持仓每日估值延续到最新交易日（当前 2026-11-12）
+- 自训模型：5 × 4 = 20 个账本；11-02 之后的新特征和分数已在本机补算，最后一次信号 2026-11-12
 - 多因子 · 小市值：3 × 4 = 12 个账本；2024-01-02 至 2026-11-12 季度调仓回放，最近一次调仓 2026-09-30（最新打分 2026-10-30）
 - LLM 模型：5 × 4 = 20 个账本；每个交易日 15:35 自动结算并生成次日决策，17:10 自动重试限额失败的模型；当前已到 2026-11-12
 - 本地：行情缓存、SQLite 账本、自训模型分数重放、决策调度、静态站构建都在 Mac mini 上
@@ -35,7 +35,7 @@
 - 股票池：653 只历史沪深 300 成分股；回放信号区间 2026-09-01 → 2026-10-30，持仓估值延续到最新交易日。
 - 组合：低换手规则——持有约 30 只、跌出前 50 名才卖、每 5 个交易日最多替换 5 只；次日开盘成交，100 股整手（`sh.688` 200 股），买卖 0.10%/0.20%（每笔最低 5 元），1% 成交额上限。
 - 数据来源：`~/labs/VLA/Share/v2/local_data/` 的 `panel.npz`、`metadata.json` 和五条路线的测试分数矩阵；本地用 `paper_trader/local_models.py` 重放，不需要 torch。
-- 数据口径限制：测试分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据）；持仓按最新收盘价每日估值（当前至 2026-11-12），但不会凭空产生新信号。
+- 数据口径：原始测试分数矩阵最后一次有效信号是 2026-10-30（5 日标签需要未来数据）；11-02 → 11-12 用 BaoStock 新日线重建 panel、在本机用 `latest_*.pt` 补算分数并生成新信号。`docs/DATA_SOURCES.md` 记录了数据源与复现步骤。
 
 ### 多因子 · 小市值（新增）
 
@@ -172,9 +172,10 @@ scripts/deploy.sh --skip-export
 ## 本地算力结论（Mac mini M4 / 16GB）
 
 - 平台服务（行情、SQLite、回放、自训分数重放、调度、静态构建）全部在本机完成；回放 20+20 个组合的常驻内存 <100MB，峰值 <300MB。
-- 自训模型是小型网络（3–10 万参数），本地 CPU 重放分数矩阵即可；不跑 torch 训练。
+- 自训模型是小型网络（3–10 万参数）。2026-11-12 在 M4/16GB、torch 2.15 + MPS 上实测：300 只有效股票 × 60×25 输入，单模型 1.6–93 ms；五条路线各跑一遍合计约 **0.11 秒/日（MPS）** 或 **0.32 秒/日（CPU）**，内存 <1GB。详见 [`docs/LOCAL_INFERENCE.md`](docs/LOCAL_INFERENCE.md)。
 - 多因子小市值在 lab 的 CPU 队列训练（LightGBM），Mac mini 只重放 12 个组合的月度分数矩阵，不需要 LightGBM/torch。
-- LLM 推理按日调用 DeepSeek / 智谱 API，每天 5 次。16GB 统一内存能跑单个 7B/8B 量化模型，但同时服务 5 个当代模型不现实；需要完全本地推理时，可把 `models.py` 的 provider 指向本机 Ollama / MLX 的 OpenAI 兼容端点。
+- 本地只运行自训模型；LLM 家族按日调用云端 DeepSeek / 智谱 API，不在本机推理。16GB 同时服务 5 个当代 LLM 不现实。
+- 自训家族当前使用预计算分数矩阵（最后信号 10-30）；本机 torch 环境已就绪，更新 panel 特征后即可用 `latest_*.pt` 在本地打分产生新信号。
 
 ## 目录
 
@@ -192,10 +193,11 @@ paper_trader/
   export.py        合并三个家族，生成前端 data.json
 experiments/       多因子小市值的下载、准备、因子、训练与回测代码
 web/               静态仪表盘（默认自训模型，可切多因子 / LLM）
-scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py
+scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / bench_local_models.py
 tests/             engine / 费用 / 权重归一化单元测试
 docs/screenshots/  before.png、after-*.png、local-*.png、llm-*.png
 docs/RESULTS.md    两个家族的回放结果快照
+docs/LOCAL_INFERENCE.md 自训模型本地推理实测
 docs/OPERATIONS.md 部署与运维
 ```
 
@@ -211,7 +213,7 @@ python3 -m unittest discover -s tests -v
 
 见 [`docs/RESULTS.md`](docs/RESULTS.md)。关键数字：
 
-- 自训模型 20 个账本，2026-09-01 → 2026-11-12：合计 +0.14%，沪深 300 同期约 -12.31%；领先 GRU+Attention 10 万 +2.17%。
+- 自训模型 20 个账本，2026-09-01 → 2026-11-12：合计 -0.28%，沪深 300 同期约 -12.31%；领先 GRU+Attention 10 万 +2.38%；新补算的 11-02→11-12 信号已进入回放。
 - LLM 模型 20 个账本，2026-09-01 → 2026-11-12：合计 +1.52%，沪深 300 同期 -12.31%；领先 GLM-5.3 Flash 3 万 +3.06%。
 - 多因子 · 小市值 2024-01-02 → 2026-11-12：测试 Rank IC 0.096（LightGBM）、0.084（等权）、0.030（纯小市值）；季度调仓 + 按本金自适应持仓数后，3 万账户 +100.04%（回撤 -30.8%、期末现金 5.6%），10 万 +56.76%，同期全市场等权 +50.25%；详见 [docs/RESULTS.md](docs/RESULTS.md)。
 - 三个家族口径不同，仅作各自链路验证。
