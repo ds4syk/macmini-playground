@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>策略实验室 · 多模型日线纸面交易</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c62828'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='white' font-family='PingFang SC,sans-serif'%3E%E7%AD%96%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./assets/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">策</span>
+    <div class="brand-text">
+      <h1>策略实验室</h1>
+      <p>多模型 · 多本金 · A股日线纸面交易</p>
+    </div>
+  </div>
+  <div class="top-meta">
+    <span class="status-chip"><i></i><span id="status-label">模拟盘运行中</span></span>
+    <span class="top-sep"></span>
+    <span>交易日 <b id="as-of">--</b></span>
+    <span class="top-sep"></span>
+    <span>数据更新 <b id="updated-at">--</b></span>
+  </div>
+</header>
+
+<div class="familybar">
+  <div class="family-tabs" id="family-tabs" role="tablist" aria-label="模型家族"></div>
+  <div class="family-note" id="family-note"></div>
+</div>
+
+<nav class="ticker" id="ticker" aria-label="主要指数"></nav>
+
+<main>
+  <section class="kpis" id="kpis" aria-label="账户概览"></section>
+
+  <section class="grid-main">
+    <div class="card chart-card">
+      <div class="card-head">
+        <div>
+          <h2>净值走势</h2>
+          <p id="chart-sub">五个模型在同一本金下的收益率对比</p>
+        </div>
+        <div class="controls">
+          <div class="seg" id="capital-seg" role="group" aria-label="本金筛选"></div>
+          <div class="seg" id="mode-seg" role="group" aria-label="指标切换">
+            <button type="button" data-mode="ret" class="active">收益率</button>
+            <button type="button" data-mode="value">账户净值</button>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div id="equity-chart" class="chart" aria-label="净值曲线"></div>
+    </div>
+
+    <aside class="card ranking-card">
+      <div class="card-head">
+        <div>
+          <h2>组合排行</h2>
+          <p id="rank-sub">按累计收益率排序</p>
+        </div>
+        <span class="pill" id="rank-count">--</span>
+      </div>
+      <div class="ranking" id="ranking"></div>
+    </aside>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>模型对比</h2>
+          <p>同一模型在 1万 / 3万 / 5万 / 10万 四档本金下的表现</p>
+        </div>
+      </div>
+      <div class="model-table" id="model-table"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>最新决策</h2>
+          <p id="decision-sub">收盘后生成，下一交易日开盘执行</p>
+        </div>
+      </div>
+      <div class="decisions" id="decisions"></div>
+    </div>
+  </section>
+
+  <section class="card detail-card" id="detail">
+    <div class="detail-head">
+      <div class="detail-title">
+        <span class="model-dot" id="detail-dot"></span>
+        <div>
+          <h2 id="detail-name">--</h2>
+          <p id="detail-sub">--</p>
+        </div>
+      </div>
+      <div class="detail-kpis" id="detail-kpis"></div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-left">
+        <div class="subhead">持仓明细 <span class="subhead-note" id="holdings-note"></span></div>
+        <div class="table-wrap">
+          <table class="data-table" id="holdings-table">
+            <thead>
+              <tr><th>股票</th><th class="num">持股</th><th class="num">成本</th><th class="num">现价</th><th class="num">市值</th><th class="num">浮动盈亏</th><th class="num">权重</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="subhead">最近成交</div>
+        <div class="table-wrap">
+          <table class="data-table trades" id="trades-table">
+            <thead>
+              <tr><th>日期</th><th>股票</th><th>方向</th><th class="num">数量</th><th class="num">价格</th><th class="num">金额</th><th>理由</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <aside class="detail-right">
+        <div class="subhead">资产配置</div>
+        <div id="alloc-chart" class="chart donut" aria-label="资产配置"></div>
+        <div class="subhead">本组合决策</div>
+        <div class="decision-box" id="detail-decision"></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="grid-2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>大盘 K 线</h2>
+          <p>上证指数 · 近 60 个交易日</p>
+        </div>
+        <span class="pill neutral">日线</span>
+      </div>
+      <div id="candle-chart" class="chart compact" aria-label="上证指数K线"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2 id="universe-title">候选池行情</h2>
+          <p>30 只样本股 · 单位 %</p>
+        </div>
+        <span class="pill neutral" id="breadth">--</span>
+      </div>
+      <div class="universe" id="universe"></div>
+    </div>
+  </section>
+
+  <footer>
+    <p>模拟盘，仅供策略研究与模型对比，不构成任何投资建议。行情为腾讯行情前复权日线，成交按下一交易日开盘价回放，已计入佣金、印花税与过户费。</p>
+    <p class="footer-sub" id="family-note-footer">--</p>
+    <p class="footer-sub" id="footer-sub">--</p>
+  </footer>
+</main>
+
+<script src="./assets/vendor/echarts.min.js"></script>
+<script src="./assets/app.js"></script>
+</body>
+</html>
