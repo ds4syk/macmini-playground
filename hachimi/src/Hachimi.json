@@ -1,0 +1,12 @@
+{
+  "id": "Hachimi",
+  "name": "哈基米替换哇啾叽",
+  "author": "ds4syk",
+  "description": "把愚者的「哇 / 啾 / 叽」文本全部换成「哈 / 基 / 米」：19 张卡牌卡名、卡牌描述、能力描述、旋律提示，以及相关遗物/药水文本里提到的名字。纯文本替换，玩法不变；出「哇 啾 叽」时还会播放哈基米语音。",
+  "version": "0.2.0",
+  "min_game_version": "0.113.0",
+  "has_pck": false,
+  "has_dll": true,
+  "dependencies": [],
+  "affects_gameplay": false
+}
