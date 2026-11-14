@@ -7,7 +7,7 @@
     <RootNamespace>Hachimi</RootNamespace>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
 
     <!-- Apple Silicon install; override with -p:Sts2DataDir=... on another machine/branch. -->
     <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(HOME)/Library/Application Support/Steam/steamapps/common/Slay the Spire 2/SlayTheSpire2.app/Contents/Resources/data_sts2_macos_arm64</Sts2DataDir>
@@ -32,7 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="../assets/hachimi_card.png" LogicalName="Hachimi.assets.hachimi_card.png" />
     <EmbeddedResource Include="../assets/hachimi_voice.wav" LogicalName="Hachimi.assets.hachimi_voice.wav" />
     <None Include="Hachimi.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

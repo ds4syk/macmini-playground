@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Modding;
@@ -7,17 +6,13 @@ using MegaCrit.Sts2.Core.Modding;
 namespace Hachimi;
 
 /// <summary>
-/// Entry point. The game calls <see cref="Initialize"/> once after loading this assembly
-/// because the class carries <see cref="ModInitializerAttribute"/>.
+/// Entry point. The game calls <see cref="Initialize"/> once after loading this
+/// assembly because the class carries <see cref="ModInitializerAttribute"/>.
 /// </summary>
 [ModInitializer(nameof(Initialize))]
 public static class ModEntry
 {
     public const string ModId = "Hachimi";
-    public const string CardTitle = "哈基米";
-
-    /// <summary>Virtual path served by <see cref="HachimiPortraitLoader"/> (there is no .pck).</summary>
-    public const string PortraitPath = "res://Hachimi/images/hachimi_card.png";
 
     private static bool _initialized;
 
@@ -37,10 +32,9 @@ public static class ModEntry
             var harmony = new Harmony(ModId);
             harmony.PatchAll(typeof(ModEntry).Assembly);
 
-            HachimiPortraitLoader.Register();
             HachimiSound.Preload();
 
-            Log.Info("loaded: Wah Cho Ki is now 哈基米");
+            Log.Info("loaded: 哇 / 啾 / 叽 -> 哈 / 基 / 米");
         }
         catch (Exception e)
         {

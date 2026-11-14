@@ -75,14 +75,15 @@ public static class PreviewEntry
 
             if (_card == null)
             {
-                var model = ModelDb.AllCards.FirstOrDefault(c => c is WahChoKi);
-                if (model == null)
+                var melody = ModelDb.AllCards.FirstOrDefault(c => c.Id.ToString().EndsWith("WAH_CHO_KI"));
+                var chorus = ModelDb.AllCards.FirstOrDefault(c => c.Id.ToString().EndsWith("CHO_CHORUS"));
+                if (melody == null || chorus == null)
                 {
                     return;
                 }
 
-                GD.Print("[HachimiPreview] showing " + model.Id);
-                ShowCard(model);
+                GD.Print($"[HachimiPreview] showing {melody.Id} + {chorus.Id}");
+                ShowCards(melody, chorus);
                 _shownAt = elapsed;
                 return;
             }
@@ -103,7 +104,7 @@ public static class PreviewEntry
         }
     }
 
-    private static void ShowCard(CardModel model)
+    private static void ShowCards(CardModel left, CardModel right)
     {
         _layer = new CanvasLayer { Layer = 250 };
         _tree!.Root.AddChild(_layer);
@@ -113,29 +114,43 @@ public static class PreviewEntry
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _layer.AddChild(bg);
 
-        var label = new Label { Text = "Hachimi card preview (QA)", Position = new Vector2(40, 30) };
+        var label = new Label { Text = "Hachimi card preview (QA)", Position = new Vector2(40, 860) };
         label.AddThemeFontSizeOverride("font_size", 28);
         _layer.AddChild(label);
 
+        var viewport = _tree!.Root.GetVisibleRect().Size;
+        var first = CreateCard(left);
+        if (first != null)
+        {
+            first.Position = new Vector2(viewport.X / 2f - 380f, 340f);
+        }
+
+        var second = CreateCard(right);
+        if (second != null)
+        {
+            second.Position = new Vector2(viewport.X / 2f + 20f, 340f);
+        }
+    }
+
+    private static NCard? CreateCard(CardModel model)
+    {
         var card = NCard.Create(model);
         if (card == null)
         {
             GD.PrintErr("[HachimiPreview] NCard.Create returned null");
-            return;
+            return null;
         }
 
-        _layer.AddChild(card);
-        _card = card;
+        _layer!.AddChild(card);
+        _card ??= card;
         KeepAlive.Add(card);
 
         // Pooled card nodes are not ready when Model is assigned, so Reload() bails;
         // refresh once the node is in the tree so the title/description render too.
         card.UpdateVisuals(PileType.None, CardPreviewMode.Normal);
-
         card.Scale = new Vector2(1.3f, 1.3f);
-        var viewport = _tree!.Root.GetVisibleRect().Size;
-        card.Position = new Vector2(viewport.X / 2f - 185f, 300f);
-        GD.Print($"[HachimiPreview] title={model.Title} portrait={model.PortraitPath} portraitTex={(model.Portrait != null)}");
+        GD.Print($"[HachimiPreview] {model.Id} title={model.Title} desc={model.Description.GetRawText()?.Replace("\n", " | ")}");
+        return card;
     }
 
     private static void Capture(string path)

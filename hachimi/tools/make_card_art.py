@@ -146,4 +146,4 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "assets/hachimi_card.png")
+    main(sys.argv[1] if len(sys.argv) > 1 else "docs/art/hachimi_card.png")

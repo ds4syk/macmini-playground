@@ -1,19 +1,26 @@
-# 哈基米 Hachimi · 杀戮尖塔 2 Mod
+# 哈基米替换哇啾叽 · 杀戮尖塔 2 Mod
 
-把愚者（The Fool）的「**哇 啾 叽**」（内部 ID `WAH_CHO_KI`）换成「**哈基米**」。
+把愚者（The Fool）的「**哇 / 啾 / 叽**」文本全部换成「**哈 / 基 / 米**」，
+做法和创意工坊里的《草泥马替换哇啾叽》（ID 3839553444）一致：**纯文本替换**，不碰卡面、数值和卡牌 ID。
 
-| | 原来的「哇 啾 叽」 | 装上本 Mod 后 |
-|---|---|---|
-| 卡名 | 哇 啾 叽 | **哈基米** |
-| 卡面 | 官方卡图 | 原创哈基米猫卡图（唱歌） |
-| 出牌音效 | 哇 / 啾 / 叽 三段旋律语音 | **哈基米**语音；该次出牌的 2.5 秒内静音上面三段语音 |
-| 费用 / 数值 / 稀有度 / 卡牌 ID | 1 费 · 9 格挡 · 9 伤害 · 抽 1 · 稀有 · `WAH_CHO_KI` | 完全不变 |
+| 原文 | 替换后 |
+|---|---|
+| 哇 啾 叽（卡名） | 哈 基 米 |
+| 啾 副歌、叽 唱诵、哇 战锤……（19 张卡名） | 基 副歌、米 唱诵、哈 战锤…… |
+| 打出手牌中所有「哇」和「叽」牌 | 打出手牌中所有「哈」和「米」牌 |
+| 哇 / 啾 / 叽 旋律（提示与能力描述） | 哈 / 基 / 米 旋律 |
+| 遗物「陶笛」、药水「瓶装歌」等文本里提到的牌名 | 同步替换 |
 
-数值和卡牌 ID 都没有改动，所以存档、卡牌标签（`Wah/Cho/Ki` 的联动）和联机判定都保持原样，只是「看和听」变了。
+- **范围**：19 张卡牌卡名、卡牌描述、能力描述、旋律提示，以及相关遗物 / 药水文本里提到的名字。
+- **语言**：简体中文 + 繁体中文（繁体用「嘰」，同样换成「米」）。
+- **只有文本**：卡牌之间的联动走内部标签，不看名字，所以玩法、存档、联机判定完全不变；无前置 Mod。
+- **额外音效**（按最初需求加的）：打出「哇 啾 叽」（现「哈 基 米」）时会播放热门哈基米语音，
+  同时把这张牌原本的 哇 / 啾 / 叽 三段旋律人声静音 2.5 秒，避免叠在一起。
 
 ## 对比截图
 
-均为游戏内真实画面（同一个 NCard 控件、同一个窗口尺寸与 UI 状态），基线为未安装本 Mod 的游戏 v0.113.0。
+同一个 `NCard` 控件、同一窗口尺寸和 UI 状态；基线是未安装本 Mod 的 v0.113.0。
+左边是「哇 啾 叽 → 哈 基 米」，右边是「啾 副歌 → 基 副歌」，可见卡名和描述里的字都换了。
 
 | 之前（原版） | 之后（本 Mod） |
 |---|---|
@@ -22,69 +29,53 @@
 ## 目录
 
 ```
-src/                 Mod 源码（C# / Godot.NET.Sdk 4.5.1 / net9.0）
+src/
   ModEntry.cs        入口 + 日志
-  CardPatches.cs     Harmony 补丁：卡名、卡面路径、出牌音效
-  HachimiPortraitLoader.cs  无 .pck 时用 ResourceFormatLoader 提供卡图
-  HachimiSound.cs    内嵌 WAV -> AudioStreamWav -> SFX 总线播放
+  CardPatches.cs     文本替换补丁 + 出牌音效补丁
+  HachimiSound.cs    内嵌 WAV -> AudioStreamWav -> SFX 总线
   Hachimi.json       Mod 清单
-assets/              内嵌素材（卡图 PNG、语音 WAV）
-tools/make_card_art.py     卡图生成脚本（可复现）
+assets/hachimi_voice.wav   内嵌语音
+docs/evidence/       对比截图
+docs/art/            可选的哈基米卡面插画（本 Mod 默认不替换卡面，和参考 Mod 一致）
+tools/make_card_art.py     插画生成脚本
 tools/PreviewMod/          QA 工具：游戏内渲染卡牌并截图，不随 Mod 安装
-build.sh             构建 + 安装到本机 Steam 游戏目录
+build.sh             构建 + 安装
 ```
 
 ## 构建与安装
 
 ```bash
-./build.sh          # 需要 .NET 9 SDK；默认装到 Apple Silicon 的 Steam 目录
+./build.sh
 ```
 
-脚本会把 `Hachimi.dll` 和 `Hachimi.json` 复制到
+会把 `Hachimi.dll` 和 `Hachimi.json` 复制到
 `…/Slay the Spire 2/SlayTheSpire2.app/Contents/MacOS/mods/Hachimi/`。
-换机器/换分支时用 `-p:Sts2DataDir=…` 或 `STS2_GAME_DIR=…` 覆盖路径。
 
 ## 实现要点
 
-- **卡名**：Harmony 前缀打在 `CardModel.get_Title`，只对 `WahChoKi` 生效。
-- **卡面**：改写 `PortraitPath` / `BetaPortraitPath` / `PortraitPngPath` / `AllPortraitPaths`
-  指向 `res://Hachimi/images/hachimi_card.png`，并注册一个 `ResourceFormatLoader`
-  从 DLL 内嵌资源里解出 `ImageTexture`（没有 `.pck`，所以不能靠资源包覆盖）。
-- **音效**：`WahChoKi.OnPlay` 前缀里播放内嵌的哈基米语音（挂在 `SFX` 总线），
-  同时打开 2.5 秒窗口，让 `SfxCmd.Play` 跳过该次出牌的
-  `event:/sfx/characters/fugitive/fugitive_{wa,cho,ki}` 三段人声。
-- 只改这一个卡牌；其它「哇 / 啾 / 叽」卡不受影响。
+- 文本替换打在 `LocManager.LoadTable` 的 Postfix 上：只处理 `zhs` / `zht` 的
+  `cards`、`powers`、`relics`、`potions`、`static_hover_tips`、`card_keywords`、`card_library` 这几张表，
+  把这些表里所有 `哇→哈`、`啾→基`、`叽→米`、`嘰→米`。
+  这样能改到「文本里提到的牌名」，又不会误伤无关台词（例如 `好哇！！`、
+  小怪 banter 里的 `哇——`、鸟的 `啾啾`、`叽叽喳喳` 等，都在别的表或已排除的 key 里）。
+- 卡名、描述、能力提示都从这个本地化表读取，所以改表即可全量生效。
+- 语音：`WahChoKi.OnPlay` 前缀播放内嵌哈基米语音，并在 2.5 秒窗口内让
+  `SfxCmd.Play` 跳过 `event:/sfx/characters/fugitive/fugitive_{wa,cho,ki}`。
 
 ## 验证记录
 
-- `dotnet build`：0 warning / 0 error。
-- 启动日志（`~/Library/Application Support/SlayTheSpire2/logs/godot.log`）：
-  ```
-  [INFO] Found mod manifest file .../mods/Hachimi/Hachimi.json
-  [INFO] Calling initializer method of type Hachimi.ModEntry ...
-  [INFO] [Hachimi] portrait loader registered
-  [INFO] [Hachimi] voice loaded (63946 PCM bytes, 22050 Hz, stereo=False)
-  [INFO] [Hachimi] loaded: Wah Cho Ki is now 哈基米
-  [INFO] Finished mod initialization for '哈基米 Hachimi' (Hachimi).
-  ```
-- 游戏内截图：`docs/evidence/before.png`（原版 `哇 啾 叽`）与 `docs/evidence/after.png`
-  （`哈基米` + 新卡图），由 `tools/PreviewMod` 在同一个 `NCard` 控件上抓帧。
-- 语音播放路径：`tools/PreviewMod` 调用 `HachimiSound.Play()`，日志出现
-  `[Hachimi] voice clip playing`，无资源/音频错误。
+- `dotnet build -c Release`：0 warning / 0 error。
+- 启动日志：`[Hachimi] loading v0.2.0.0` / `voice loaded (63946 PCM bytes, 22050 Hz)` /
+  `loaded: 哇 / 啾 / 叽 -> 哈 / 基 / 米`，`Finished mod initialization`。
+- 游戏内截图（`docs/evidence/`，同一控件同一状态）：
+  - 原版：`哇 啾 叽` / `啾 副歌`，描述里是 `所有“哇”和“叽”牌`
+  - 装上后：`哈 基 米` / `基 副歌`，描述里是 `所有“哈”和“米”牌`
+- 语音路径：QA 工具调用 `HachimiSound.Play()`，日志 `[Hachimi] voice clip playing`，无资源/音频报错。
 
-## 素材来源与说明
+## 素材与说明
 
-- **语音**：B 站《哈基米常用音效》（[BV1JyYPzyE8w](https://www.bilibili.com/video/BV1JyYPzyE8w)），
-  截取 1.00–2.45 秒，转 22050 Hz 单声道 16-bit WAV，响度归一化到 -16 LUFS。
-  仅用于个人本地 Mod，未再分发到公开渠道。
-- **卡图**：`tools/make_card_art.py` 程序化绘制的原创「唱歌的哈基米猫」，不是官方素材。
-- **参考图片缺失**：原始飞书消息里写了「仿照这张图片」，但该消息实际只有文字、没有图片附件，
-  所以卡图按「哈基米 + 唱歌（对应原卡的旋律机制）」的方向原创绘制。
-  如果参考图有特定构图/画风需求，补图后可以按图重画。
-
-## 兼容性
-
-- 测试环境：macOS arm64，Steam 版 *Slay the Spire 2* **v0.113.0 (public-beta)**。
-  「哇 啾 叽」是 v0.113 新增的愚者卡；更老的版本没有这张卡，请不要安装。
-- 依赖：无（不依赖 BaseLib / RitsuLib）。
-- 与其它改卡面的 Mod 共存时，卡图以最后生效的补丁为准。
+- **语音**：B 站《哈基米常用音效》（[BV1JyYPzyE8w](https://www.bilibili.com/video/BV1JyYPzyE8w)）
+  1.00–2.45 秒，22050 Hz 单声道 16-bit，响度归一化；仅个人本地使用。
+- **卡面**：保持原版，和参考 Mod 一致。`docs/art/hachimi_card.png` 是我之前画的可选哈基米插画，
+  需要的话可以加一个开关把它套到卡面上。
+- **兼容性**：macOS arm64 / v0.113.0（public-beta）。「哇 啾 叽」是 v0.113 新增的愚者卡，老版本没有。
