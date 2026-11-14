@@ -72,6 +72,28 @@ build.sh             构建 + 安装
   - 装上后：`哈 基 米` / `基 副歌`，描述里是 `所有“哈”和“米”牌`
 - 语音路径：QA 工具调用 `HachimiSound.Play()`，日志 `[Hachimi] voice clip playing`，无资源/音频报错。
 
+## 跨平台
+
+本 Mod 是纯托管代码（net9.0 / AnyCPU / ILOnly，无原生库、无 `.pck`、不读平台路径、不碰 Steamworks），
+所以同一份 `Hachimi.dll` + `Hachimi.json` 放到 Windows / macOS / Linux 的游戏 `mods/` 里都能被同一个
+Mod 加载器加载；文本替换走的是游戏自己的本地化表，和操作系统无关。
+
+唯一的平台相关点在**编译期**：`Sts2DataDir` 默认指向本机 macOS arm64 的 `data_sts2_*` 目录，只用于引用
+`sts2.dll`。换平台或换分支时覆盖它即可：
+
+```bash
+dotnet build -c Release -p:Sts2DataDir="<游戏的 data_sts2_* 目录>" src/Hachimi.csproj
+```
+
+这类 STS2 Mod 做跨平台时一般注意：
+
+- **纯代码 Mod**：一个 AnyCPU DLL 通吃（本 Mod 就是）。
+- **带 `.pck` 资源**：Godot 导入/压缩过的纹理可能与平台相关，通常按平台各打一份 pck；或者把 PNG 内嵌进
+  DLL，用 `ResourceFormatLoader` 提供（`docs/art` 那版卡面就是这么做的，天然跨平台）。
+- **带原生库**：按平台各放一份二进制，运行时再分发。
+- **游戏版本兼容**是另一条轴：`min_game_version`，以及 RitsuLib / BuildTools 那套 variants manifest
+  （按 `minGameVersion` 选 `lib/<version>/` 目录）。
+
 ## 素材与说明
 
 - **语音**：B 站《哈基米常用音效》（[BV1JyYPzyE8w](https://www.bilibili.com/video/BV1JyYPzyE8w)）
