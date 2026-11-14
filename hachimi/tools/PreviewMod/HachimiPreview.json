@@ -1,0 +1,12 @@
+{
+  "id": "HachimiPreview",
+  "name": "Hachimi Preview (QA)",
+  "author": "ds4syk",
+  "description": "QA-only helper that renders the 哇 啾 叽 card with and without the Hachimi patches and saves both frames.",
+  "version": "0.1.0",
+  "min_game_version": "0.113.0",
+  "has_pck": false,
+  "has_dll": true,
+  "dependencies": [],
+  "affects_gameplay": false
+}

@@ -1,0 +1,12 @@
+{
+  "id": "Hachimi",
+  "name": "哈基米 Hachimi",
+  "author": "ds4syk",
+  "description": "把愚者的「哇 啾 叽」卡换成哈基米：卡面、卡名以及出牌音效都变成哈基米。数值、稀有度和卡牌 ID 保持不变。",
+  "version": "0.1.0",
+  "min_game_version": "0.113.0",
+  "has_pck": false,
+  "has_dll": true,
+  "dependencies": [],
+  "affects_gameplay": false
+}

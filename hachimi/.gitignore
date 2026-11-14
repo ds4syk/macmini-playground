@@ -1,0 +1,5 @@
+out/
+obj/
+tools/PreviewMod/out/
+tools/PreviewMod/obj/
+tools/PreviewMod/.godot/
