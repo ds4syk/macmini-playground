@@ -50,8 +50,8 @@
 ### 模拟盘（中信 / 同花顺）
 
 - `python3 -m paper_trader.broker list` 看模型/本金；`orders --broker citic|ths` 生成调仓清单（CSV + Markdown），按目标权重复刻，保留模型现金比例；支持 13 个模型 × 4 档本金。
-- 不自动下单：信e投/同花顺散户模拟盘没有公开下单 API；QMT/PTrade 需客户经理开通量化权限（常见 30/50 万门槛、Windows）。
-- 用法、中信/同花顺入口、多模型账户安排和需要确认的事项见 [docs/BROKER.md](docs/BROKER.md)。
+- **同花顺网页模拟盘**已实测接通（2026-11-17，读资金/持仓 + 下单前自检通过），用 `paper_trader.ths_web` 自动下单：挂接已登录的 Chrome（CDP），读资金/持仓、按清单发市价委托、导出持仓回填；需要先 `scripts/start_ths_chrome.sh` + 扫码登录一次，默认只打印计划、`--yes` 才提交。中信信e投只有 App、没有公开 API，仍走手工清单；QMT/PTrade 要客户经理开通量化权限（常见 30/50 万门槛、Windows）。
+- 用法、登录步骤、规则与安全边界见 [docs/BROKER.md](docs/BROKER.md)。
 
 ### LLM 模型（保留）
 
@@ -191,9 +191,12 @@ paper_trader/
   multifactor.py   小市值多因子分数重放 → 多因子家族 JSON
   runner.py        fetch / replay / daily / export / serve
   export.py        合并三个家族，生成前端 data.json
+  broker.py        模型组合 → 中信/同花顺调仓清单（手工或自动执行）
+  ths_page.py      同花顺网页模拟盘的浏览器操作层（CDP + Playwright）
+  ths_web.py       模拟盘 CLI：status / positions / preflight / execute / login
 experiments/       多因子小市值的下载、准备、因子、训练与回测代码
 web/               静态仪表盘（默认自训模型，可切多因子 / LLM）
-scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / bench_local_models.py
+scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / start_ths_chrome.sh / setup_ths_bridge.sh
 tests/             engine / 费用 / 权重归一化单元测试
 docs/screenshots/  before.png、after-*.png、local-*.png、llm-*.png
 docs/RESULTS.md    两个家族的回放结果快照
@@ -207,7 +210,7 @@ docs/OPERATIONS.md 部署与运维
 python3 -m unittest discover -s tests -v
 ```
 
-覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
+覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量，以及同花顺清单解析、整手校验、持仓/金额解析。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
 
 ## 结果快照
 
@@ -226,4 +229,5 @@ python3 -m unittest discover -s tests -v
 - 前复权/原始价格近似成交；未模拟滑点、盘口深度、涨跌停排队；自训模型不处理分红送转。
 - 单一数据源（腾讯行情 / 本地 panel），未做多源交叉校验。
 - 自训模型 1 万/3 万本金在 30 只目标下大量现金拖累；这是真实的可执行性约束，不是 bug。
+- 同花顺自动下单依赖网页 DOM（选择器集中在 `paper_trader/ths_page.py`），页面改版需要更新；只支持市价单（主板买入 100 股整数倍、科创板 200 股起），成交价与清单参考价会有偏差。
 - 本轮 Kimi 前端优化因 Sensenova 上游持续返回 HTTP 429（多次重试）未执行；界面已用 Playwright 做桌面 1440px 与移动 390px 自检（无 console 错误、无横向溢出）。
