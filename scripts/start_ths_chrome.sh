@@ -24,5 +24,5 @@ nohup "$CHROME" \
   --no-first-run --no-default-browser-check --disable-features=Translate \
   --window-size=1440,960 \
   "$URL" >"$LOG" 2>&1 &
-echo "已启动 Chrome：CDP 127.0.0.1:$PORT，profile $PROFILE，日志 $LOG"
+echo "已启动 Chrome：CDP 127.0.0.1:${PORT}，profile ${PROFILE}，日志 ${LOG}"
 echo "接着执行：python -m paper_trader.ths_web login"

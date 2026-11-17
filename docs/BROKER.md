@@ -206,5 +206,54 @@ python3 -m paper_trader.broker orders --broker ths \
   成交，也避免在账户里留下测试持仓；建议选好模型后，在交易时段先小单跑一次
   `execute --yes`，核对当日委托/成交后再跑全量清单。
 
+## 9. HTTP 直连（快速路径，推荐）
+
+同花顺模拟盘的网页本身就是 AJAX 交易，`paper_trader.ths_http` 直接调它的 JSON 接口，
+不再逐点页面：浏览器只在首次登录时用一次，导出 Cookie（本机 600 权限），之后查询/下单
+都是普通 HTTP 请求。
+
+### 9.1 一次性登录
+
+```bash
+scripts/start_ths_chrome.sh                              # 带调试端口的 Chrome
+.venv-ths/bin/python -m paper_trader.ths_http login      # 扫码 → 导出 Cookie + 股东账号
+```
+
+登录页是官方 `upass.10jqka.com.cn`；Cookie 只写到
+`~/.config/paper-trader/ths_cookies.json`，不会进仓库。
+
+### 9.2 日常命令（系统 python3 即可，不需要浏览器或 playwright）
+
+```bash
+time python3 -m paper_trader.ths_http status
+python3 -m paper_trader.ths_http quote --code 600000
+python3 -m paper_trader.ths_http orders
+python3 -m paper_trader.ths_http positions --out broker_orders/ths/current.csv
+python3 -m paper_trader.ths_http preflight --orders broker_orders/ths/xxx.csv
+python3 -m paper_trader.ths_http execute --orders broker_orders/ths/xxx.csv --yes
+```
+
+### 9.3 实测耗时（2026-11-17，20 万模拟账号、0 持仓）
+
+| 命令 | 耗时 |
+| --- | ---: |
+| `status`（资金 + 持仓） | 0.32 秒 |
+| `quote --code 600000`（单只行情） | 0.24 秒 |
+| `preflight`（8 笔清单逐只查行情/账号） | 0.73 秒 |
+| `positions`（导出 CSV） | 0.40 秒 |
+
+对比浏览器 DOM 方案单次数十秒。股东账号从行情返回的 `extend` 字段（`gdzhlb*2,A547…;1,0017…;`）
+里取：沪市 `mkcode=2`、深市 `mkcode=1`；市价委托固定用 `tradeStockSjwt/` + `sjwttype`
+（沪 21 / 深 14，最优五档即时成交剩余撤销）。
+
+### 9.4 与浏览器方案的关系
+
+- `ths_http`：日常用，单次 HTTP 通常 0.2–0.5 秒；登录和 Cookie 由 `login` 负责。
+- `ths_web`：CDP + Playwright 点页面，慢（单次数十秒），保留作登录/兜底，页面改版时
+  按 DOM 修比改接口字段更直观。
+- Cookie 过期时 `status` 会报「资金账号不存在 / 登录过期」，重跑 `login` 即可。
+- 这些是网页版自用 AJAX 接口，不是同花顺官方公开 API；同花顺改版时路径/字段可能要更新，
+  以 `ths_simulated_API`、`RobotTrader` 等公开实现和实际抓包为准。
+
 页面结构参考 MIT 许可的 [ai_ths_moni_trading_mcp](https://github.com/trading-a/ai_ths_moni_trading_mcp)
 （Copyright (c) 2026 jsiq@qq.com），按本平台 CLI 重写。

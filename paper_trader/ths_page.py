@@ -360,10 +360,22 @@ async def login_with_qr(qr_out: Path, timeout: int = 1800, refresh_every: int = 
     start = time.monotonic()
     while time.monotonic() - start < timeout:
         now = time.monotonic()
+        # 先落盘二维码，避免首次轮询（刷新平台页）阻塞截图
+        if now - last_shot >= refresh_every:
+            try:
+                if await login_page.locator(SELECTORS["login_qr_invalid"]).is_visible():
+                    await login_page.locator(SELECTORS["login_qr_refresh"]).first.click()
+                    await login_page.wait_for_timeout(1500)
+                panel = login_page.locator(SELECTORS["login_qr_panel"])
+                await panel.screenshot(path=str(qr_out))
+                print("二维码已写入 %s" % qr_out, flush=True)
+            except Exception as exc:
+                print("二维码截图失败：%s" % exc, file=sys.stderr, flush=True)
+            last_shot = now
         if now - last_poll >= 4:
             last_poll = now
             try:
-                await platform.reload(wait_until="domcontentloaded")
+                await platform.reload(wait_until="domcontentloaded", timeout=10000)
                 if await is_logged_in(platform):
                     print("登录成功。", flush=True)
                     try:
@@ -374,28 +386,39 @@ async def login_with_qr(qr_out: Path, timeout: int = 1800, refresh_every: int = 
             except Exception:
                 pass
         try:
-            if await login_page.locator(SELECTORS["login_qr_invalid"]).is_visible():
-                await login_page.locator(SELECTORS["login_qr_refresh"]).first.click()
-                await login_page.wait_for_timeout(1500)
-                last_shot = 0.0
-        except Exception:
-            pass
-        try:
             if await login_page.locator(SELECTORS["login_qr_success"]).is_visible():
                 print("已扫码，等待手机端确认…", flush=True)
         except Exception:
             pass
-        now = time.monotonic()
-        if now - last_shot >= refresh_every:
-            try:
-                panel = login_page.locator(SELECTORS["login_qr_panel"])
-                await panel.screenshot(path=str(qr_out))
-                print("二维码已写入 %s" % qr_out, flush=True)
-            except Exception as exc:
-                print("二维码截图失败：%s" % exc, file=sys.stderr, flush=True)
-            last_shot = now
         await asyncio.sleep(2)
     raise NotLoggedIn("等待扫码登录超时（%d 秒）。请重新运行 login 生成新的二维码。" % timeout)
+
+
+async def export_cookies(path: Path) -> int:
+    """把浏览器里 10jqka 域名的 Cookie（含 httpOnly）导出成 JSON，供 HTTP 直连使用。
+
+    返回导出的条数；没有登录态时抛 NotLoggedIn。文件权限设为 600。
+    """
+    import json as _json
+    import os as _os
+    from datetime import datetime as _datetime
+
+    browser = await connect()
+    cookies = []
+    for context in browser.contexts:
+        cookies.extend(await context.cookies())
+    keep = [cookie for cookie in cookies if "10jqka.com.cn" in cookie.get("domain", "")]
+    if not keep:
+        raise NotLoggedIn("浏览器里没有同花顺登录 Cookie，请先登录。")
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "saved_at": _datetime.now().isoformat(timespec="seconds"),
+        "cookies": keep,
+    }
+    path.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _os.chmod(path, 0o600)
+    return len(keep)
 
 
 async def _show_submenu(page: Page, parent: str, child: str) -> None:

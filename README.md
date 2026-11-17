@@ -50,7 +50,7 @@
 ### 模拟盘（中信 / 同花顺）
 
 - `python3 -m paper_trader.broker list` 看模型/本金；`orders --broker citic|ths` 生成调仓清单（CSV + Markdown），按目标权重复刻，保留模型现金比例；支持 13 个模型 × 4 档本金。
-- **同花顺网页模拟盘**已实测接通（2026-11-17，读资金/持仓 + 下单前自检通过），用 `paper_trader.ths_web` 自动下单：挂接已登录的 Chrome（CDP），读资金/持仓、按清单发市价委托、导出持仓回填；需要先 `scripts/start_ths_chrome.sh` + 扫码登录一次，默认只打印计划、`--yes` 才提交。中信信e投只有 App、没有公开 API，仍走手工清单；QMT/PTrade 要客户经理开通量化权限（常见 30/50 万门槛、Windows）。
+- **同花顺网页模拟盘**已实测接通：`paper_trader.ths_http` 直连模拟盘的 JSON 接口（登录后单次 0.2–0.5 秒），查资金/持仓、按清单市价下单、导出持仓回填；浏览器只在首次扫码登录时用一次（`ths_web` 保留作登录/兜底）。需要先 `scripts/start_ths_chrome.sh` + `.venv-ths/bin/python -m paper_trader.ths_http login`，默认只打印计划、`--yes` 才提交。中信信e投只有 App、没有公开 API，仍走手工清单；QMT/PTrade 要客户经理开通量化权限（常见 30/50 万门槛、Windows）。
 - 用法、登录步骤、规则与安全边界见 [docs/BROKER.md](docs/BROKER.md)。
 
 ### LLM 模型（保留）
@@ -193,7 +193,8 @@ paper_trader/
   export.py        合并三个家族，生成前端 data.json
   broker.py        模型组合 → 中信/同花顺调仓清单（手工或自动执行）
   ths_page.py      同花顺网页模拟盘的浏览器操作层（CDP + Playwright）
-  ths_web.py       模拟盘 CLI：status / positions / preflight / execute / login
+  ths_web.py       浏览器版模拟盘 CLI（登录/兜底）：status / preflight / execute / login
+  ths_http.py      HTTP 直连版模拟盘 CLI（日常快速路径）
 experiments/       多因子小市值的下载、准备、因子、训练与回测代码
 web/               静态仪表盘（默认自训模型，可切多因子 / LLM）
 scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / start_ths_chrome.sh / setup_ths_bridge.sh
@@ -210,7 +211,7 @@ docs/OPERATIONS.md 部署与运维
 python3 -m unittest discover -s tests -v
 ```
 
-覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量，以及同花顺清单解析、整手校验、持仓/金额解析。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
+覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量，以及同花顺清单解析、整手校验、持仓/金额解析、Cookie 域过滤。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
 
 ## 结果快照
 

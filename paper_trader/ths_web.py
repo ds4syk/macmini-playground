@@ -29,6 +29,7 @@ from paper_trader.broker import is_star, normalize_symbol
 
 STATE_DIR = Path.home() / ".config" / "paper-trader"
 EXEC_LOG_DIR = STATE_DIR / "executions"
+COOKIE_PATH = STATE_DIR / "ths_cookies.json"
 
 SIDES = {"买入": "buy", "卖出": "sell", "buy": "buy", "sell": "sell"}
 
@@ -338,6 +339,8 @@ async def _login_command(args: argparse.Namespace) -> int:
         print("登录完成，进入交易区…")
     page = await ths_page.ensure_trading_page()
     account = account_summary(await ths_page.read_account(page))
+    count = await ths_page.export_cookies(COOKIE_PATH)
+    print("已导出 %d 条同花顺 Cookie 到 %s（HTTP 直连用）。" % (count, COOKIE_PATH))
     print("交易页就绪；可用余额 %.2f 元，总资产 %.2f 元。" % (
         account.get("可用余额", 0.0), account.get("总资产", 0.0)
     ))
