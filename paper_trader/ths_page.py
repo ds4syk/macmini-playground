@@ -1,4 +1,4 @@
-"""同花顺网页模拟盘（moni.10jqka.com.cn）的浏览器操作层。
+"""同花顺网页模拟盘（同花顺模拟炒股网页交易区）的浏览器操作层。
 
 工具不保存账号密码，也不启动自己的浏览器：人工启动 Chrome 并登录同花顺模拟盘，
 本模块通过 Chrome DevTools Protocol（CDP，默认 127.0.0.1:9222）挂接该浏览器，
@@ -282,7 +282,7 @@ async def _trade_url_from_profile(platform: Page) -> Optional[str]:
 async def enter_trading_zone(platform: Page) -> None:
     """进入交易区：优先用「我的模拟炒股」主页里的交易区链接，直接新开标签页。
 
-    首页的「进入交易区」按钮在没有模拟账户时是隐藏的，而且点击依赖页面脚本；
+    首页的「进入交易区」按钮在登录态下没有渲染出来，而且点击依赖页面脚本；
     个人主页里的链接是带 usrid/token 的直链，直接打开更稳定。
     """
     platform = platform or await find_platform_page()
@@ -317,7 +317,7 @@ async def enter_trading_zone(platform: Page) -> None:
 
 
 async def open_platform_page() -> Page:
-    """打开（或复用）平台首页；不在首页时先回首页，登录轮询依赖首页的 #topUser。"""
+    """打开（或复用）平台首页；不在首页时先回首页，登录轮询依赖首页的登录态节点。"""
     platform = await find_platform_page()
     if platform is None:
         browser = await connect()

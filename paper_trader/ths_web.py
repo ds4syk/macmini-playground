@@ -8,7 +8,7 @@
 前置条件：Chrome 已用调试端口启动，并人工登录同花顺模拟盘（扫码即可）：
 ``scripts/start_ths_chrome.sh`` → ``python -m paper_trader.ths_web login``。
 
-安全边界：只操作 ``moni.10jqka.com.cn`` 的模拟盘；没有账密存储；``execute`` 默认
+安全边界：只操作同花顺模拟盘（交易页标题「同花顺虚拟交易所」）；没有账密存储；``execute`` 默认
 拒绝执行，必须显式 ``--yes``；所有提交都会写一份本地执行日志。真实券商（中信信e投）
 没有公开下单 API，仍按 ``docs/BROKER.md`` 走手工清单。
 """
@@ -70,7 +70,8 @@ def read_sheet(path: Path) -> List[SheetOrder]:
     orders: List[SheetOrder] = []
     with Path(path).open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        missing = [field for field in ("symbol", "side", "shares") if field not in (reader.fieldnames or [])]
+        headers = reader.fieldnames or []
+        missing = [field for field in ("symbol", "side", "shares") if field not in headers]
         if missing:
             raise ValueError("清单缺少列：%s" % ", ".join(missing))
         for row in reader:
@@ -249,6 +250,9 @@ async def _execute_command(args: argparse.Namespace) -> int:
         for problem in problems:
             print("  - %s" % problem, file=sys.stderr)
         return 2
+    if len(orders) > args.max_orders:
+        print("订单数 %d 超过 --max-orders=%d，拒绝执行。" % (len(orders), args.max_orders), file=sys.stderr)
+        return 2
     page = await ths_page.ensure_trading_page()
     account = account_summary(await ths_page.read_account(page))
     _print_plan(orders, account)
@@ -266,10 +270,6 @@ async def _execute_command(args: argparse.Namespace) -> int:
     if not args.yes:
         print("\n未加 --yes，不执行；确认无误后重跑并加 --yes。", file=sys.stderr)
         return 2
-    if len(orders) > args.max_orders:
-        print("订单数 %d 超过 --max-orders=%d，拒绝执行。" % (len(orders), args.max_orders), file=sys.stderr)
-        return 2
-
     # 先卖后买，卖出回款再用于买入。
     ordered = [order for order in orders if order.side == "sell"] + [
         order for order in orders if order.side == "buy"
@@ -361,6 +361,11 @@ async def _order_command(args: argparse.Namespace) -> int:
             print("拒绝：" + problem, file=sys.stderr)
         return 2
     page = await ths_page.ensure_trading_page()
+    account = account_summary(await ths_page.read_account(page))
+    blocked = _check_affordable([order], account, skip=False)
+    if blocked:
+        print("拒绝：" + blocked[0], file=sys.stderr)
+        return 2
     if not args.yes:
         print("未加 --yes，不执行。将提交：%s %s %s 股（市价）。" % (side, order.symbol, order.shares))
         return 2
@@ -411,7 +416,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_order.add_argument("--side", choices=["buy", "sell", "买入", "卖出"], required=True)
     p_order.add_argument("--code", required=True)
     p_order.add_argument("--shares", type=int, required=True)
-    p_order.add_argument("--price", type=float, default=0.0, help="参考价（只用于金额展示）")
+    p_order.add_argument("--price", type=float, required=True, help="参考价（用于金额展示与余额检查）")
     p_order.add_argument("--yes", action="store_true")
     p_order.set_defaults(func=_order_command)
     return parser
@@ -433,6 +438,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ths_page.ThsError as exc:
         print("失败：%s" % exc, file=sys.stderr)
         return 1
+    except (ValueError, OSError) as exc:
+        print("失败：%s" % exc, file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
