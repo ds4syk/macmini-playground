@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>实盘跟踪 · 多模型 3 万</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c62828'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='white' font-family='PingFang SC,sans-serif'%3E%E7%AD%96%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="./assets/styles.css">
+<style>
+  .live-wrap { max-width: 1280px; margin: 0 auto; padding: 20px 26px 48px; }
+  .live-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .live-title h2 { font-size: 20px; }
+  .live-title .sub { color: var(--muted); font-size: 11.5px; }
+  .acct-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .acct-strip .card { padding: 12px 14px; }
+  .acct-strip .kpi-label { font-size: 11px; color: var(--muted); }
+  .acct-strip .kpi-value { font-size: 20px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .model-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .model-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .model-name { font-weight: 700; font-size: 14px; }
+  .model-family { font-size: 10px; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 1px 7px; }
+  .model-main { display: flex; align-items: flex-end; justify-content: space-between; }
+  .model-equity { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .model-ret { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .model-sub { color: var(--muted); font-size: 11px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .model-positions { border-top: 1px dashed var(--line); padding-top: 8px; }
+  .pos-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; color: var(--muted); padding: 2px 0; }
+  .pos-row b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .live-foot { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+  .empty-tip { color: var(--muted); font-size: 12px; }
+  @media (max-width: 980px) { .model-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) {
+    .live-wrap { padding: 14px; }
+    .acct-strip { grid-template-columns: repeat(2, 1fr); }
+    .model-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">策</span>
+    <div class="brand-text">
+      <h1>实盘跟踪</h1>
+      <p>同花顺模拟盘 · 6 模型 × 3 万</p>
+    </div>
+  </div>
+  <div class="top-meta">
+    <span class="status-chip"><i></i><span id="status-label">运行中</span></span>
+    <span class="top-sep"></span>
+    <span>更新 <b id="updated-at">--</b></span>
+    <span class="top-sep"></span>
+    <a href="./" style="color:var(--muted);text-decoration:none">返回看板</a>
+  </div>
+</header>
+
+<main class="live-wrap">
+  <div class="live-title">
+    <h2>多模型 3 万子账本</h2>
+    <span class="sub" id="started-at">起始 --</span>
+  </div>
+
+  <section class="acct-strip">
+    <div class="card"><div class="kpi-label">账户总资产</div><div class="kpi-value" id="acct-total">--</div></div>
+    <div class="card"><div class="kpi-label">可用资金</div><div class="kpi-value" id="acct-cash">--</div></div>
+    <div class="card"><div class="kpi-label">冻结资金</div><div class="kpi-value" id="acct-frozen">--</div></div>
+    <div class="card"><div class="kpi-label">持仓市值</div><div class="kpi-value" id="acct-mv">--</div></div>
+  </section>
+
+  <section class="model-grid" id="models">
+    <div class="empty-tip">加载中…</div>
+  </section>
+
+  <p class="live-foot">
+    每个模型按 3 万目标权重下市价单到同一个 20 万模拟账户，现金和持仓按成交归属到各自子账本；
+    收益 = （子账本现金 + 持仓市值）/ 3 万 − 1。已含每笔最低 5 元的买卖费用估算；
+    实际成交价、T+1、涨跌停和费用以同花顺模拟盘为准。<br>
+    页面每 30 秒自动刷新；行情来自腾讯。仅为模拟盘研究记录，不构成投资建议。
+  </p>
+</main>
+
+<script>
+const fmt = (n) => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtPct = (n) => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+const cls = (n) => n > 0 ? 'up' : n < 0 ? 'down' : 'flat';
+
+function render(data) {
+  document.getElementById('updated-at').textContent = data.updated_at || '--';
+  document.getElementById('started-at').textContent = '起始 ' + (data.started_at || '--') + ' · 每模型 ' + fmt(data.capital / 10000) + ' 万';
+  const acct = data.account || {};
+  document.getElementById('acct-total').textContent = fmt(acct.total || 0);
+  document.getElementById('acct-cash').textContent = fmt(acct.cash || 0);
+  document.getElementById('acct-frozen').textContent = fmt(acct.frozen || 0);
+  document.getElementById('acct-mv').textContent = fmt(acct.market_value || 0);
+  const root = document.getElementById('models');
+  root.innerHTML = '';
+  (data.models || []).forEach((m) => {
+    const card = document.createElement('article');
+    card.className = 'model-card';
+    const positions = (m.positions || []).slice(0, 6).map((p) =>
+      `<div class="pos-row"><span>${p.symbol} ${p.name}</span><span>${p.shares} 股 · <b>${fmt(p.value)}</b></span></div>`
+    ).join('');
+    const more = (m.positions || []).length > 6 ? `<div class="pos-row"><span>…</span><span>共 ${m.positions.length} 只</span></div>` : '';
+    card.innerHTML = `
+      <div class="model-head">
+        <span class="model-name">${m.name}</span>
+        <span class="model-family">${m.family || ''}</span>
+      </div>
+      <div class="model-main">
+        <div>
+          <div class="model-equity">${fmt(m.equity)}</div>
+          <div class="model-sub"><span>现金 ${fmt(m.cash)}</span><span>市值 ${fmt(m.market_value)}</span></div>
+        </div>
+        <div class="model-ret ${cls(m.ret_pct)}">${fmtPct(m.ret_pct)}</div>
+      </div>
+      <div class="model-positions">
+        ${positions || '<div class="pos-row"><span>暂无持仓（现金）</span><span></span></div>'}
+        ${more}
+      </div>`;
+    root.appendChild(card);
+  });
+  if (!(data.models || []).length) root.innerHTML = '<div class="empty-tip">暂无数据</div>';
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('./live.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    render(await res.json());
+    document.getElementById('status-label').textContent = '运行中';
+  } catch (err) {
+    document.getElementById('status-label').textContent = '数据未更新';
+  }
+}
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

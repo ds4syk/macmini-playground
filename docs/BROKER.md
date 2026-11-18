@@ -257,3 +257,58 @@ python3 -m paper_trader.ths_http execute --orders broker_orders/ths/xxx.csv --ye
 
 页面结构参考 MIT 许可的 [ai_ths_moni_trading_mcp](https://github.com/trading-a/ai_ths_moni_trading_mcp)
 （Copyright (c) 2026 jsiq@qq.com），按本平台 CLI 重写。
+
+
+## 10. 多模型实盘跟踪（同花顺共享账户 + 3 万子账本）
+
+2026-11-18 起，按选定的 6 个模型做实时跟踪：多因子 LightGBM / 等权 / 纯小市值、
+GRU + Attention、Transformer、DeepSeek V4 Pro。每个模型 3 万，共 18 万；同花顺只有
+一个 20 万模拟账户（初始资金固定，不能改成 3 万），所以用**共享账户执行 + 每模型独立
+子账本记账**，收益分开算。
+
+### 10.1 数据流
+
+```
+live/orders.json（启动买单，合约号 → 模型）
+        │
+        ├─ 同花顺 delegate/qryChengjiao（当日成交）
+        │        └─ 按合约号归属到子账本：现金、持仓、成交明细
+        │
+        ├─ 腾讯行情（st_price / st_pclose）→ 持仓估值
+        │
+        └─ web/live.json + web/live.html → 腾讯云 token 页面（30 秒刷新）
+```
+
+- 子账本：`~/.config/paper-trader/live/ledger.json`，每个模型 3 万现金起步；买入按成交
+  金额扣现金、卖出加回；费用按买 0.10%/卖 0.20%、每笔最低 5 元估算。
+- 估值：`equity = 子账本现金 + Σ(持仓股数 × 最新价)`，`ret = equity / 30000 − 1`。
+- 账户总资产、可用/冻结资金、持仓市值来自同花顺资金接口。
+
+### 10.2 命令与调度
+
+```bash
+# 手工同步 + 估值 + 部署
+PYTHONPATH=. python3 -m paper_trader.live run --deploy
+
+# 只同步成交 / 只估值
+PYTHONPATH=. python3 -m paper_trader.live sync
+PYTHONPATH=. python3 -m paper_trader.live value
+
+# 安装交易时段每 120 秒刷新的 launchd 任务
+scripts/install_live.sh
+```
+
+- 页面：`https://paper.suyingke.chat/<token>/live.html`；看板右上角有「实盘跟踪」入口。
+- launchd：`com.suyingke.papertrader.live`，每 120 秒，09:25–15:10 运行
+  `scripts/live.sh`（同步 → 估值 → rsync 部署）；日志 `~/.config/paper-trader/live.log`。
+- 非交易时段任务直接退出，不产生请求。
+
+### 10.3 当前口径与限制
+
+- 启动（11-18 10:50）按各模型**最近一次信号**的目标组合买入：多因子来自 09-30、
+  自训来自 11-12、LLM 来自 11-17；不是当天新信号。下一期调仓需要先刷新信号、重新生成
+  清单，再按子账本做差额单。
+- 市价单会**分批成交**，子账本按成交明细记账；收盘前未成交部分仍算现金，不强行补单。
+- 同花顺实际费用可能低于我们的估算（页面按 0.10%/0.20% 计），跨模型比较口径一致。
+- 3 万是平台的记账基准，不是同花顺的资金档位；实际下单按 3 万目标折算，共用 20 万账户。
+- 多因子小市值 3 万只能买到 4–8 只（整手限制），现金占比高于模型目标，这是真实约束。
