@@ -442,6 +442,23 @@ def command_order(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_export_cookies(args: argparse.Namespace) -> int:
+    """只从已登录浏览器重导 Cookie（不等待扫码），给定时任务自愈用。"""
+    import asyncio
+
+    from paper_trader import ths_page
+
+    async def run() -> int:
+        try:
+            count = await ths_page.export_cookies(COOKIE_PATH)
+        finally:
+            await ths_page.disconnect()
+        print("已导出 %d 条 Cookie" % count)
+        return 0
+
+    return asyncio.run(run())
+
+
 def command_login(args: argparse.Namespace) -> int:
     """用浏览器完成扫码登录，并把 Cookie/账户信息导出给 HTTP 客户端。"""
     import asyncio
@@ -530,6 +547,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_order.add_argument("--price", type=float, required=True, help="参考价（余额检查用）")
     p_order.add_argument("--yes", action="store_true")
     p_order.set_defaults(func=command_order)
+
+    p_export = sub.add_parser("export-cookies", help="从已登录浏览器重导 Cookie（不等待扫码）")
+    p_export.set_defaults(func=command_export_cookies)
 
     p_login = sub.add_parser("login", help="浏览器扫码登录并导出 Cookie（一次性）")
     p_login.add_argument("--qr-out", default=str(Path.home() / ".config/paper-trader/ths-login-qr.png"))

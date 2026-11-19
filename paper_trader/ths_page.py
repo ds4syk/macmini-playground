@@ -408,7 +408,8 @@ async def export_cookies(path: Path) -> int:
     for context in browser.contexts:
         cookies.extend(await context.cookies())
     keep = [cookie for cookie in cookies if "10jqka.com.cn" in cookie.get("domain", "")]
-    if not keep:
+    auth = {cookie["name"] for cookie in keep} & {"user", "userid", "ticket", "utk", "escapename"}
+    if not keep or not auth:
         raise NotLoggedIn("浏览器里没有同花顺登录 Cookie，请先登录。")
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

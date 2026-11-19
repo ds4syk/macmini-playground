@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LIVE_DIR = Path.home() / ".config" / "paper-trader" / "live"
 ORDERS_PATH = LIVE_DIR / "orders.json"
 LEDGER_PATH = LIVE_DIR / "ledger.json"
+HISTORY_PATH = LIVE_DIR / "history.json"
 LIVE_JSON = ROOT / "web" / "live.json"
 LIVE_HTML = ROOT / "web" / "live.html"
 DEPLOY_ENV = Path.home() / ".config" / "paper-trader" / "deploy.env"
@@ -35,9 +36,121 @@ DEPLOY_WEB = Path(os.environ.get(
 ))
 
 CAPITAL = 30000.0
+BENCHMARK = "sh000300"
+MINUTE_URL = "https://web.ifzq.gtimg.cn/appstock/app/minute/query"
 BUY_FEE = 0.001
 SELL_FEE = 0.002
 MIN_FEE = 5.0
+
+
+
+
+def tencent_code(symbol: str) -> str:
+    return ("sh" if symbol.startswith(("6", "9")) else "sz") + symbol
+
+
+def _fetch_minute_prices(codes: List[str]) -> Dict[str, Dict[str, float]]:
+    """腾讯分钟线：{code: {"HHMM": price}}。"""
+    if ths_http.requests is None:
+        return {}
+    result = {}
+    for code in codes:
+        try:
+            response = ths_http.requests.get(
+                MINUTE_URL, params={"code": code}, timeout=10, headers={"User-Agent": ths_http.USER_AGENT}
+            )
+            rows = ((response.json().get("data") or {}).get(code) or {}).get("data", {}).get("data") or []
+        except Exception:
+            continue
+        prices = {}
+        for line in rows:
+            parts = str(line).split()
+            if len(parts) >= 2:
+                try:
+                    prices[parts[0]] = float(parts[1])
+                except ValueError:
+                    continue
+        if prices:
+            result[code] = prices
+    return result
+
+
+def _price_at(prices: Dict[str, float], hhmm: str) -> Optional[float]:
+    if not prices:
+        return None
+    if hhmm <= "1130":
+        keys = [key for key in prices if key <= hhmm]
+    elif hhmm < "1300":
+        keys = [key for key in prices if key <= "1130"]
+    else:
+        keys = [key for key in prices if key <= hhmm]
+    if not keys:
+        return None
+    return prices[max(keys)]
+
+
+def _benchmark_now() -> float:
+    minutes = _fetch_minute_prices([BENCHMARK]).get(BENCHMARK, {})
+    if not minutes:
+        return 0.0
+    return minutes[max(minutes)]
+
+
+def _grid() -> List[str]:
+    points = []
+    minute = 9 * 60 + 30
+    while minute <= 11 * 60 + 30:
+        points.append("%02d%02d" % (minute // 60, minute % 60))
+        minute += 5
+    minute = 13 * 60
+    while minute <= 15 * 60:
+        points.append("%02d%02d" % (minute // 60, minute % 60))
+        minute += 5
+    return points
+
+
+def backfill(date: Optional[str] = None) -> Dict[str, Any]:
+    """用当日分钟线 + 成交记录回填今天的子账本净值曲线。"""
+    ledger = init_ledger()
+    date = date or time.strftime("%Y-%m-%d")
+    symbols = sorted({
+        symbol for model in ledger["models"].values() for symbol in model["positions"].keys()
+    })
+    codes = {code: tencent_code(code) for code in symbols}
+    minutes = _fetch_minute_prices(list(codes.values()) + [BENCHMARK])
+    start_date = str(ledger.get("started_at") or "")[:10]
+    same_day = date == start_date
+    points = []
+    for hhmm in _grid():
+        hhmm_fmt = hhmm[:2] + ":" + hhmm[2:]
+        values = {}
+        for model_id, model in ledger["models"].items():
+            if same_day:
+                cash = float(ledger["capital"])
+                shares: Dict[str, int] = {}
+                for fill in model["fills"]:
+                    if fill["time"][:5] > hhmm_fmt:
+                        continue
+                    if fill["side"] == "buy":
+                        cash -= fill["amount"] + fill["fee"]
+                        shares[fill["symbol"]] = shares.get(fill["symbol"], 0) + fill["shares"]
+                    else:
+                        cash += fill["amount"] - fill["fee"]
+                        shares[fill["symbol"]] = shares.get(fill["symbol"], 0) - fill["shares"]
+            else:
+                cash = float(model["cash"])
+                shares = {symbol: position["shares"] for symbol, position in model["positions"].items()}
+            equity = cash
+            for symbol, count in shares.items():
+                price = _price_at(minutes.get(codes.get(symbol, ""), {}), hhmm)
+                if price:
+                    equity += count * price
+            values[model_id] = round(equity, 2)
+        benchmark = _price_at(minutes.get(BENCHMARK, {}), hhmm) or 0
+        points.append({"t": "%sT%s:%s" % (date, hhmm[:2], hhmm[2:]), "models": values, "benchmark": benchmark})
+    history = {"date": date, "points": points}
+    _write_json(HISTORY_PATH, history)
+    return history
 
 
 def _load_json(path: Path, default: Any = None) -> Any:
@@ -163,8 +276,8 @@ def value(client: Optional[ths_http.Client] = None) -> Dict[str, Any]:
     })
     quotes = _quote_prices(client, symbols)
     account = client.account()
-    account_positions = client.positions()
-    account_mv = sum(float(p["price"]) * p["shares"] for p in account_positions)
+    # 盘后持仓接口可能返回上一交易日的价格，用总资产口径更稳
+    account_mv = max(0.0, float(account.get("zzc") or 0) - float(account.get("kyje") or 0) - float(account.get("djje") or 0))
     models = []
     for model_id, model in ledger["models"].items():
         rows = []
@@ -207,6 +320,56 @@ def value(client: Optional[ths_http.Client] = None) -> Dict[str, Any]:
             }
         )
     models.sort(key=lambda item: item["ret_pct"], reverse=True)
+
+    # 历史净值：回填/定时任务写入，value 只更新最后一个点
+    today = time.strftime("%Y-%m-%d")
+    now = time.strftime("%H:%M")
+    history = _load_json(HISTORY_PATH, {"date": today, "points": []})
+    if history.get("date") != today:
+        history = {"date": today, "points": []}
+    benchmark = _benchmark_now()
+    point = {
+        "t": "%sT%s" % (today, now),
+        "models": {model["id"]: model["equity"] for model in models},
+        "benchmark": benchmark or (history["points"][-1].get("benchmark", 0) if history["points"] else 0),
+    }
+    if now <= "15:10":
+        history["points"].append(point)
+    elif history["points"]:
+        history["points"][-1] = dict(point, t=history["points"][-1]["t"])
+    else:
+        history["points"].append(point)
+    if len(history["points"]) > 240:
+        history["points"] = history["points"][-240:]
+    _write_json(HISTORY_PATH, history)
+
+    points = history["points"]
+    first = points[0] if points else {"models": {}, "benchmark": 0}
+    benchmark0 = first.get("benchmark") or 0
+    series = []
+    for item in points:
+        row = {"t": item["t"][11:16], "values": {}, "benchmark": 0.0}
+        for model in models:
+            equity = float(item.get("models", {}).get(model["id"]) or ledger["capital"])
+            row["values"][model["id"]] = round((equity / ledger["capital"] - 1) * 100, 3)
+        if benchmark0 and item.get("benchmark"):
+            row["benchmark"] = round((item["benchmark"] / benchmark0 - 1) * 100, 3)
+        series.append(row)
+    for model in models:
+        values = [float(item.get("models", {}).get(model["id"]) or 0) for item in points]
+        values = [value for value in values if value]
+        peak = 0.0
+        drawdown = 0.0
+        for value in values:
+            peak = max(peak, value)
+            if peak:
+                drawdown = min(drawdown, value / peak - 1)
+        model["series"] = [
+            {"t": row["t"], "ret": row["values"].get(model["id"], 0)} for row in series
+        ]
+        model["max_drawdown"] = round(drawdown * 100, 2)
+        model["today_pnl"] = round(model["equity"] - (first["models"].get(model["id"]) or model["equity"]), 2)
+
     payload = {
         "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "started_at": ledger.get("started_at"),
@@ -218,6 +381,7 @@ def value(client: Optional[ths_http.Client] = None) -> Dict[str, Any]:
             "market_value": round(account_mv, 2),
         },
         "models": models,
+        "series": series,
     }
     _write_json(LIVE_JSON, payload)
     return payload

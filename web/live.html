@@ -12,10 +12,22 @@
   .live-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .live-title h2 { font-size: 20px; }
   .live-title .sub { color: var(--muted); font-size: 11.5px; }
-  .acct-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .acct-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
   .acct-strip .card { padding: 12px 14px; }
   .acct-strip .kpi-label { font-size: 11px; color: var(--muted); }
   .acct-strip .kpi-value { font-size: 20px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .live-chart { margin-bottom: 14px; padding: 14px 16px; }
+  .live-chart .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .live-chart h3 { font-size: 14px; }
+  .chart-note { color: var(--muted); font-size: 11px; }
+  #return-chart { width: 100%; height: 330px; margin-top: 6px; }
+  .compare-card { margin-bottom: 14px; padding: 14px 16px; }
+  .compare-card h3 { font-size: 14px; margin-bottom: 6px; }
+  .compare-card .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .compare-card .data-table th { text-align: right; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .compare-card .data-table th:first-child, .compare-card .data-table td:first-child { text-align: left; }
+  .compare-card .data-table td { text-align: right; padding: 7px 8px; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
+  .compare-card .data-table tr:last-child td { border-bottom: 0; }
   .model-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
   .model-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
   .model-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -35,6 +47,9 @@
     .live-wrap { padding: 14px; }
     .acct-strip { grid-template-columns: repeat(2, 1fr); }
     .model-grid { grid-template-columns: 1fr; }
+    #return-chart { height: 260px; }
+    .compare-card { overflow-x: auto; }
+    .compare-card .data-table { min-width: 520px; }
   }
 </style>
 </head>
@@ -69,6 +84,24 @@
     <div class="card"><div class="kpi-label">持仓市值</div><div class="kpi-value" id="acct-mv">--</div></div>
   </section>
 
+  <section class="card live-chart">
+    <div class="card-head">
+      <div>
+        <h3>收益率曲线</h3>
+        <p class="chart-note">相对 3 万本金 · 虚线为沪深 300（同一时段归零）</p>
+      </div>
+    </div>
+    <div id="return-chart"></div>
+  </section>
+
+  <section class="card compare-card">
+    <h3>模型对比</h3>
+    <table class="data-table">
+      <thead><tr><th>模型</th><th>净值</th><th>累计收益</th><th>今日盈亏</th><th>最大回撤</th><th>持仓</th></tr></thead>
+      <tbody id="compare-body"></tbody>
+    </table>
+  </section>
+
   <section class="model-grid" id="models">
     <div class="empty-tip">加载中…</div>
   </section>
@@ -81,19 +114,84 @@
   </p>
 </main>
 
+<script src="./assets/vendor/echarts.min.js"></script>
 <script>
+const COLORS = ["#2f6fed", "#d92b2b", "#0a9b5a", "#f59e0b", "#8b5cf6", "#0891b2"];
+const MODEL_COLORS = {
+  "deepseek-v4-pro": "#2f6fed",
+  "local-attn-gru": "#d92b2b",
+  "local-transformer": "#0a9b5a",
+  "mf-lgbm": "#f59e0b",
+  "mf-size": "#0891b2",
+  "mf-equal": "#8b5cf6",
+};
 const fmt = (n) => Number(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtPct = (n) => (n >= 0 ? '+' : '') + Number(n).toFixed(2) + '%';
 const cls = (n) => n > 0 ? 'up' : n < 0 ? 'down' : 'flat';
+let chart = null;
 
-function render(data) {
-  document.getElementById('updated-at').textContent = data.updated_at || '--';
-  document.getElementById('started-at').textContent = '起始 ' + (data.started_at || '--') + ' · 每模型 ' + fmt(data.capital / 10000) + ' 万';
-  const acct = data.account || {};
-  document.getElementById('acct-total').textContent = fmt(acct.total || 0);
-  document.getElementById('acct-cash').textContent = fmt(acct.cash || 0);
-  document.getElementById('acct-frozen').textContent = fmt(acct.frozen || 0);
-  document.getElementById('acct-mv').textContent = fmt(acct.market_value || 0);
+function renderChart(data) {
+  if (!window.echarts || !data.series || data.series.length < 2) return;
+  const models = data.models || [];
+  const x = data.series.map((p) => p.t);
+  const series = models.map((m, index) => ({
+    name: m.name,
+    type: 'line',
+    smooth: true,
+    showSymbol: false,
+    width: 1.8,
+    lineStyle: { width: 1.8 },
+    itemStyle: { color: MODEL_COLORS[m.id] || COLORS[index % COLORS.length] },
+    data: data.series.map((p) => p.values[m.id]),
+  }));
+  series.push({
+    name: '沪深300',
+    type: 'line',
+    smooth: true,
+    showSymbol: false,
+    lineStyle: { width: 1.2, type: 'dashed', color: '#94a3b8' },
+    itemStyle: { color: '#94a3b8' },
+    data: data.series.map((p) => p.benchmark),
+  });
+  const option = {
+    animation: false,
+    grid: { left: 46, right: 16, top: 34, bottom: 26 },
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (v) => Number(v).toFixed(2) + '%',
+      textStyle: { fontSize: 11 },
+    },
+    legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 8, textStyle: { fontSize: 11 } },
+    xAxis: {
+      type: 'category', data: x, boundaryGap: false,
+      axisLine: { lineStyle: { color: '#e5e9ef' } },
+      axisLabel: { color: '#76828f', fontSize: 10, interval: Math.max(1, Math.floor(x.length / 8)) },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#76828f', fontSize: 10, formatter: '{value}%' },
+      splitLine: { lineStyle: { color: '#eef1f5' } },
+    },
+    series,
+  };
+  if (!chart) chart = echarts.init(document.getElementById('return-chart'), null, { renderer: 'canvas' });
+  chart.setOption(option, true);
+}
+
+function renderTable(data) {
+  const body = document.getElementById('compare-body');
+  body.innerHTML = (data.models || []).map((m) => `
+    <tr>
+      <td>${m.name}</td>
+      <td>${fmt(m.equity)}</td>
+      <td class="${cls(m.ret_pct)}">${fmtPct(m.ret_pct)}</td>
+      <td class="${cls(m.today_pnl)}">${m.today_pnl >= 0 ? '+' : ''}${fmt(m.today_pnl)}</td>
+      <td class="down">${Number(m.max_drawdown || 0).toFixed(2)}%</td>
+      <td>${(m.positions || []).length} 只</td>
+    </tr>`).join('');
+}
+
+function renderCards(data) {
   const root = document.getElementById('models');
   root.innerHTML = '';
   (data.models || []).forEach((m) => {
@@ -124,6 +222,19 @@ function render(data) {
   if (!(data.models || []).length) root.innerHTML = '<div class="empty-tip">暂无数据</div>';
 }
 
+function render(data) {
+  document.getElementById('updated-at').textContent = data.updated_at || '--';
+  document.getElementById('started-at').textContent = '起始 ' + (data.started_at || '--') + ' · 每模型 ' + fmt(data.capital / 10000) + ' 万';
+  const acct = data.account || {};
+  document.getElementById('acct-total').textContent = fmt(acct.total || 0);
+  document.getElementById('acct-cash').textContent = fmt(acct.cash || 0);
+  document.getElementById('acct-frozen').textContent = fmt(acct.frozen || 0);
+  document.getElementById('acct-mv').textContent = fmt(acct.market_value || 0);
+  renderTable(data);
+  renderChart(data);
+  renderCards(data);
+}
+
 async function refresh() {
   try {
     const res = await fetch('./live.json?t=' + Date.now(), { cache: 'no-store' });
@@ -134,6 +245,7 @@ async function refresh() {
     document.getElementById('status-label').textContent = '数据未更新';
   }
 }
+window.addEventListener('resize', () => { if (chart) chart.resize(); });
 refresh();
 setInterval(refresh, 30000);
 </script>
