@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -28,6 +29,10 @@ LEDGER_PATH = LIVE_DIR / "ledger.json"
 LIVE_JSON = ROOT / "web" / "live.json"
 LIVE_HTML = ROOT / "web" / "live.html"
 DEPLOY_ENV = Path.home() / ".config" / "paper-trader" / "deploy.env"
+# 日常 deploy.sh 会 rsync --delete 这个工作区的 web/，把 live 页也放进去，避免被删掉
+DEPLOY_WEB = Path(os.environ.get(
+    "PAPER_WEB_DIR", Path.home() / ".superagent-work" / "paper-trading-platform-fe9b2dd99152" / "web"
+))
 
 CAPITAL = 30000.0
 BUY_FEE = 0.001
@@ -232,6 +237,13 @@ def deploy() -> int:
     remote_dir = "/srv/paper/%s" % token
     for path in (LIVE_HTML, LIVE_JSON):
         subprocess.run(["rsync", "-az", str(path), "%s:%s/" % (host, remote_dir)], check=True)
+    # 同步到部署工作区，让每日 deploy.sh（rsync --delete web/）保留 live 页
+    if DEPLOY_WEB.is_dir():
+        for path in (LIVE_HTML, LIVE_JSON):
+            try:
+                shutil.copy2(path, DEPLOY_WEB / path.name)
+            except OSError:
+                pass
     subprocess.run(["ssh", "-o", "ConnectTimeout=10", host, "chmod a+r %s/live.html %s/live.json" % (remote_dir, remote_dir)], check=True)
     domain = env.get("PAPER_DOMAIN", "")
     print("https://%s/%s/live.html" % (domain, token))
