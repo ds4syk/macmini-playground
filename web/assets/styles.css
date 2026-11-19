@@ -62,6 +62,12 @@ button { font: inherit; color: inherit; }
 .top-sep { width: 1px; height: 14px; background: var(--line); }
 .status-chip { display: inline-flex; align-items: center; gap: 6px; color: #1d7a4f; background: #ebf7f0; border: 1px solid #d5eee0; padding: 3px 9px; border-radius: 99px; font-size: 11px; }
 .status-chip i { width: 6px; height: 6px; border-radius: 50%; background: #19a063; box-shadow: 0 0 0 3px rgba(25,160,99,.12); }
+.live-link {
+  color: #fff; background: var(--accent); font-weight: 600; text-decoration: none;
+  padding: 4px 11px; border-radius: 6px; box-shadow: 0 2px 6px rgba(198, 40, 40, .22);
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.live-link:hover { background: #a91f1f; text-decoration: none; }
 
 /* family switch */
 .familybar {
