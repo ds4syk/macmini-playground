@@ -1,0 +1,89 @@
+{
+  "start": "2026-08-29T09:01:34.399000+08:00",
+  "end": "2026-11-26T01:59:00.058000+08:00",
+  "sessions": 85,
+  "sessionLogs": 100,
+  "requests": 17023,
+  "usage": {
+    "input": 22112454,
+    "output": 13022353,
+    "cacheRead": 4766037568,
+    "cacheWrite": 0,
+    "total": 4801172375
+  },
+  "costCny": 197.56,
+  "usdCny": 7.1,
+  "modelsDevFetchedAt": "2026-11-26T01:55:47+08:00",
+  "models": [
+    {
+      "provider": "deepseek-official",
+      "model": "deepseek-flash",
+      "input": 20319479,
+      "output": 11812098,
+      "cacheRead": 4551419776,
+      "cacheWrite": 0,
+      "total": 4583551353,
+      "requests": 15780,
+      "costCny": 190.4029,
+      "priced": true,
+      "priceSource": "DeepSeek 官方价目",
+      "listPriceUsd": null
+    },
+    {
+      "provider": "opencode-go",
+      "model": "deepseek-v4-flash",
+      "input": 767274,
+      "output": 680849,
+      "cacheRead": 161628160,
+      "cacheWrite": 0,
+      "total": 163076283,
+      "requests": 683,
+      "costCny": 7.1602,
+      "priced": true,
+      "priceSource": "models.dev · opencode-go（deepseek-v4.1-flash）",
+      "listPriceUsd": null
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.3",
+      "input": 524264,
+      "output": 278665,
+      "cacheRead": 42046912,
+      "cacheWrite": 0,
+      "total": 42849841,
+      "requests": 408,
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 12.8923
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.4",
+      "input": 353050,
+      "output": 213134,
+      "cacheRead": 9298368,
+      "cacheWrite": 0,
+      "total": 9864552,
+      "requests": 76,
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 4.1006
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.3-flash",
+      "input": 148387,
+      "output": 37607,
+      "cacheRead": 1644352,
+      "cacheWrite": 0,
+      "total": 1830346,
+      "requests": 76,
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 0.0904
+    }
+  ]
+}
