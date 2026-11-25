@@ -640,7 +640,7 @@
       <div class="eval-notes">
         ${(evaluation.notes || []).map((note) => `<p>${esc(note)}</p>`).join("")}
       </div>
-      <div class="subhead">费用敏感性 · GRU+Attention · 100 万本金</div>
+      <div class="subhead">费用敏感性 · ${esc(evaluation.cost_model_label || "GRU+Attention")} · 100 万本金</div>
       <div class="table-wrap">
         <table class="compare-table">
           <thead><tr><th>情景</th><th class="num">区间收益</th><th class="num">年化</th><th class="num">最大回撤</th><th class="num">夏普</th><th class="num">年费用</th></tr></thead>
@@ -651,7 +651,7 @@
 
   function renderFamilyTabs() {
     const keys = Object.keys(state.families);
-    const order = ["local", "multifactor", "hk", "hk-eval", "llm"].filter((key) => keys.includes(key));
+    const order = ["local", "multifactor", "hk", "hk-mf", "hk-eval", "llm"].filter((key) => keys.includes(key));
     for (const key of keys) if (!order.includes(key)) order.push(key);
     $("#family-tabs").innerHTML = order.map((key) => {
       const family = state.families[key];

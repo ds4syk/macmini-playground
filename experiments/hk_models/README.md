@@ -65,11 +65,16 @@ $PY -m experiments.hk_models.fetch all          # 名单、日线、指数、uni
 $PY -m experiments.hk_models.prepare            # data/hk/panel.npz + metadata.json
 $PY -m experiments.hk_models.train              # 4 主路线，MPS（GRU/TCN 3 种子，其余 1 种子）
 $PY -m experiments.hk_models.backtest           # 回测并写 data/hk_family.json / hk_eval_family.json
+$PY -m experiments.hk_models.multifactor        # 港股多因子 → data/hk_mf_family.json
 python3 -m paper_trader.runner export           # 合并进 web/data.json
 ```
 
 `fetch all` 会重新抓取全部历史；调参时只跑 `prepare/train/backtest` 即可。
 `train` 的产物在 `data/hk/artifacts/scores/`，`backtest` 只依赖这些分数矩阵。
+
+## 港股多因子
+
+`multifactor.py` 只用港股数据：10 个价量+规模因子、20 日 forward return 截面排名、季度调仓；依赖 `lightgbm`（macOS 需先 `brew install libomp`，脚本会设置 `DYLD_LIBRARY_PATH=/opt/homebrew/opt/libomp/lib`）。LightGBM（3 种子）/等权 z 分数/纯小市值三个变体，10/30/50/100 万港元分别持有 4/8/10/40 只。100 万档测试段：LightGBM +30.35%、等权 +32.66%、纯小市值 +186.05%；纯小市值 10 万档只有约 4 只，收益由少数微盘路径驱动，不能当稳定 alpha。没有 PE/PB/CFP/SP 和行业中性化（免费港股历史基本面/行业分类不可靠）。
 
 ## 结果
 
@@ -84,5 +89,6 @@ python3 -m paper_trader.runner export           # 合并进 web/data.json
 | 训练/评分 | `experiments/hk_models/train.py` |
 | 费用 | `experiments/hk_models/fees.py` |
 | 回测/网页 payload | `experiments/hk_models/backtest.py` |
+| 多因子（10 价量+规模因子） | `experiments/hk_models/multifactor.py` |
 | 股票池 | `experiments/hk_models/universe.csv` |
 | 数据/分数 | `data/hk/`（本地，不提交） |

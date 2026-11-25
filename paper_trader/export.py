@@ -388,14 +388,15 @@ def write_export(conn: sqlite3.Connection, path) -> dict:
         multifactor = json.loads(multifactor_path.read_text(encoding="utf-8"))
         multifactor["generated_at"] = now
         families["multifactor"] = multifactor
-    for key, filename in (("hk", "hk_family.json"), ("hk-eval", "hk_eval_family.json")):
+    for key, filename in (("hk", "hk_family.json"), ("hk-mf", "hk_mf_family.json"),
+                          ("hk-eval", "hk_eval_family.json")):
         family_path = config.DATA_DIR / filename
         if family_path.exists():
             family = json.loads(family_path.read_text(encoding="utf-8"))
             family["generated_at"] = now
             families[key] = family
     families = {key: families[key] for key in
-                ("local", "multifactor", "hk", "hk-eval", "llm") if key in families}
+                ("local", "multifactor", "hk", "hk-mf", "hk-eval", "llm") if key in families}
     payload = {
         "generated_at": now,
         "default_family": "local" if "local" in families else next(iter(families)),

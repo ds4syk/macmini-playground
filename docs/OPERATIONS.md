@@ -101,7 +101,7 @@ python3 -m paper_trader.runner status
 
 - 研究流水线：`experiments/hk_models/`（抓取 → 面板 → 训练 → 回测 → 网页 payload）。
 - 数据：腾讯行情港股后复权/不复权日线 + 港交所 `ListOfSecurities`；`data/hk/` 本地缓存不提交。
-- 产物：`data/hk_family.json`（5 模型 × 4 档港元本金，近 3 个月）与
+- 产物：`data/hk_family.json`（4 模型 × 4 档港元本金，近 3 个月）、`data/hk_mf_family.json`（3 多因子变体 × 4 档）与
   `data/hk_eval_family.json`（5 模型 × 100 万港元，2024-01-02 起测试段 + 评测表）。
-- 重建：`$PY -m experiments.hk_models.backtest` → `python3 -m paper_trader.runner export` → `scripts/deploy.sh --skip-export`。
+- 重建：`$PY -m experiments.hk_models.backtest`、`$PY -m experiments.hk_models.multifactor` → `python3 -m paper_trader.runner export` → `scripts/deploy.sh --skip-export`。
 - 目前是研究快照，不参与每日 15:35 的 LLM 决策；重训后重新生成两个 JSON 即可更新分页。

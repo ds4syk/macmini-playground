@@ -73,6 +73,16 @@
   Trade25 在月成交超过 25 万后的 0.25% 佣金是 1m 档的主要拖累。
 - 10 万港元档佣金更低，但整手限制持仓数；港股小资金的可执行性与 A 股 100 股整手差异很大。
 
+## 港股多因子
+
+- 代码：`experiments/hk_models/multifactor.py`；数据只用港股（腾讯行情日线 + HKEX 名单）。
+- 因子（10 个）：总市值、20/60/120 日动量、5 日反转、20/60 日波动、20 日最大单日涨幅、60 日 beta、距 252 日高点。
+- 标签：月末截面、20 日 forward return 的截面排名；季度调仓；训练 2016–2021 / 验证 2022–2023 / 测试 2024-01-02–2026-11-25。
+- 变体：LightGBM（3 种子）、等权 z 分数、纯小市值；10/30/50/100 万港元分别持有 4/8/10/40 只，次日开盘、港股整手、汇丰 Trade25 费用。
+- 结果（100 万港元）：LightGBM +30.35%、等权 +32.66%、纯小市值 +186.05%；同期股票池等权 +53.99%、恒生指数 +30.84%。
+- 纯小市值 10 万档只有约 4 只，收益由少数微盘路径驱动，**不能当稳定 alpha**；LightGBM/等权的 Rank IC 也只有 0.021/0.056，十分位差为负。
+- 局限：没有 PE/PB/CFP/SP（免费港股历史基本面不可靠）和行业中性化；测试段已查看、当前名单有幸存者偏差。
+
 ## 网页分页
 
 仪表盘新增两个分页：
@@ -89,6 +99,7 @@
 | --- | --- |
 | 改前（三个 A 股分页） | [hk-before-desktop.png](screenshots/hk-before-desktop.png) |
 | 改后（港股自训） | [hk-after-desktop.png](screenshots/hk-after-desktop.png) |
+| 改后（港股多因子） | [hk-mf-after-desktop.png](screenshots/hk-mf-after-desktop.png) |
 | 改后（港股评测） | [hk-eval-after-desktop.png](screenshots/hk-eval-after-desktop.png) |
 
 ## 复现

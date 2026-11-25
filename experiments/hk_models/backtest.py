@@ -719,6 +719,7 @@ def build_eval(payload: dict, panel: dict, metadata: dict, results: dict,
     return {
         "window": [metadata["dates"][start], metadata["dates"][end]],
         "label": "港股测试段 2024-01-02 → 2026-11-25",
+        "cost_model_label": "GRU+Attention",
         "rows": rows,
         "cost_sensitivity": sensitivity,
         "notes": [
