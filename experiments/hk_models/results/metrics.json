@@ -1,0 +1,206 @@
+{
+  "attn_gru": {
+    "seeds": {
+      "42": {
+        "parameters": 48962,
+        "train_seconds": 211.9,
+        "best_epoch": 8,
+        "epochs_run": 8,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.02349399652833823,
+          "std_ic": 0.15490430709110875,
+          "icir": 0.15166780685136125,
+          "positive_fraction": 0.5621468926553672,
+          "dates": 708
+        }
+      },
+      "43": {
+        "parameters": 48962,
+        "train_seconds": 181.1,
+        "best_epoch": 6,
+        "epochs_run": 6,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": -0.004412625239123922,
+          "std_ic": 0.14327959696307918,
+          "icir": -0.030797303542534276,
+          "positive_fraction": 0.4872881355932203,
+          "dates": 708
+        }
+      },
+      "44": {
+        "parameters": 48962,
+        "train_seconds": 98.3,
+        "best_epoch": 1,
+        "epochs_run": 1,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": -0.0003135559941835295,
+          "std_ic": 0.13862234019383488,
+          "icir": -0.002261944169641674,
+          "positive_fraction": 0.4632768361581921,
+          "dates": 708
+        }
+      }
+    },
+    "ensemble": {
+      "ic": {
+        "mean_ic": 0.01241454234433074,
+        "std_ic": 0.14838715975934214,
+        "icir": 0.08366318463447203,
+        "positive_fraction": 0.5141242937853108,
+        "dates": 708
+      },
+      "decile_spread": {
+        "mean": -0.0012536201322527528,
+        "t": -1.2364488687830615
+      }
+    },
+    "parameters": 48962,
+    "train_seconds": 163.76666666666668
+  },
+  "tcn": {
+    "seeds": {
+      "42": {
+        "parameters": 95745,
+        "train_seconds": 251.6,
+        "best_epoch": 3,
+        "epochs_run": 3,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.023534065346444838,
+          "std_ic": 0.16214378122739775,
+          "icir": 0.14514318815249289,
+          "positive_fraction": 0.5310734463276836,
+          "dates": 708
+        }
+      },
+      "43": {
+        "parameters": 95745,
+        "train_seconds": 185.4,
+        "best_epoch": 1,
+        "epochs_run": 1,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.028323324920337685,
+          "std_ic": 0.17483393815074838,
+          "icir": 0.16200129803125668,
+          "positive_fraction": 0.5451977401129944,
+          "dates": 708
+        }
+      },
+      "44": {
+        "parameters": 95745,
+        "train_seconds": 215.9,
+        "best_epoch": 2,
+        "epochs_run": 2,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.042486695046339465,
+          "std_ic": 0.21283107437965104,
+          "icir": 0.1996263711498778,
+          "positive_fraction": 0.5451977401129944,
+          "dates": 708
+        }
+      }
+    },
+    "ensemble": {
+      "ic": {
+        "mean_ic": 0.04033728117782216,
+        "std_ic": 0.21256605100103523,
+        "icir": 0.18976351580067558,
+        "positive_fraction": 0.557909604519774,
+        "dates": 708
+      },
+      "decile_spread": {
+        "mean": -0.0028327309429408104,
+        "t": -2.341758615312201
+      }
+    },
+    "parameters": 95745,
+    "train_seconds": 217.63333333333333
+  },
+  "transformer": {
+    "seeds": {
+      "42": {
+        "parameters": 74689,
+        "train_seconds": 344.4,
+        "best_epoch": 2,
+        "epochs_run": 2,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.00990718400614113,
+          "std_ic": 0.15328919649812087,
+          "icir": 0.0646306734751694,
+          "positive_fraction": 0.5112994350282486,
+          "dates": 708
+        }
+      }
+    },
+    "ensemble": {
+      "ic": {
+        "mean_ic": 0.00990718400614113,
+        "std_ic": 0.15328919649812087,
+        "icir": 0.0646306734751694,
+        "positive_fraction": 0.5112994350282486,
+        "dates": 708
+      },
+      "decile_spread": {
+        "mean": -5.702455100977641e-05,
+        "t": -0.055677230954717286
+      }
+    },
+    "parameters": 74689,
+    "train_seconds": 344.4
+  },
+  "cnn": {
+    "seeds": {
+      "42": {
+        "parameters": 32193,
+        "train_seconds": 82.0,
+        "best_epoch": 2,
+        "epochs_run": 2,
+        "steps_per_epoch": 0,
+        "seen_samples_per_epoch": 0,
+        "validation_loss": 0.0,
+        "ic": {
+          "mean_ic": 0.013547170369354386,
+          "std_ic": 0.17176562520041616,
+          "icir": 0.07887009029628335,
+          "positive_fraction": 0.518361581920904,
+          "dates": 708
+        }
+      }
+    },
+    "ensemble": {
+      "ic": {
+        "mean_ic": 0.013547170369354386,
+        "std_ic": 0.17176562520041616,
+        "icir": 0.07887009029628335,
+        "positive_fraction": 0.518361581920904,
+        "dates": 708
+      },
+      "decile_spread": {
+        "mean": -0.00043951739993809306,
+        "t": -0.4147432822367416
+      }
+    },
+    "parameters": 32193,
+    "train_seconds": 82.0
+  }
+}

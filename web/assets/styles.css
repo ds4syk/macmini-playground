@@ -294,3 +294,14 @@ footer { text-align: center; color: #98a3af; font-size: 10.5px; line-height: 1.7
   .dk .v { font-size: 14px; }
   .detail-title h2 { font-size: 16px; }
 }
+
+/* Hong Kong model-evaluation tab */
+.eval-card { margin-bottom: 14px; padding: 16px 18px; }
+.eval-table { min-width: 980px; }
+.eval-table tr.benchmark-row td { color: var(--muted); background: #fafbfc; }
+.eval-notes { margin: 10px 0 14px; font-size: 11px; color: var(--muted); line-height: 1.7; }
+.eval-notes p { margin: 2px 0; }
+.eval-card .subhead { margin-top: 14px; }
+@media (max-width: 720px) {
+  .eval-card { padding: 12px; }
+}

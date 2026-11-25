@@ -79,7 +79,7 @@ python3 -m paper_trader.runner status
 - 数据源：`~/labs/VLA/Share/multifactor/local_export/`（lab 训练的 `panel.npz`、`metadata.json`、三个变体的月度分数矩阵、`metrics.json`）。
 - 重建：lab 跑 `experiments/multifactor_smallcap/multifactor.sbatch` → rsync `local_export/` 回 Mac mini → `python3 -m paper_trader.multifactor` → `python3 -m paper_trader.runner export`。
 - 这是**历史回放快照**，不是每日信号：季度调仓、按本金自适应 4–40 只，最近一次调仓 2026-09-30（最新打分 2026-10-30），持仓按最后交易日收盘估值。重新训练后才需要刷新。
-- 前端通过 `data/multifactor_family.json` 是否存在决定是否展示第三个家族；文件缺失时 `export` 只输出两个家族。
+- 前端通过 `data/multifactor_family.json` 是否存在决定是否展示多因子家族；文件缺失时 `export` 只输出已有家族。
 
 ## 自训模型家族
 
@@ -96,3 +96,12 @@ python3 -m paper_trader.runner status
 - 部署 token：`~/.config/paper-trader/deploy.env`（600）
 - 前端：`web/` + `web/data.json`（data.json 不入 git）
 - 截图与结果快照：`docs/screenshots/`、`docs/RESULTS.md`
+
+## 港股 · 自训模型 / 评测
+
+- 研究流水线：`experiments/hk_models/`（抓取 → 面板 → 训练 → 回测 → 网页 payload）。
+- 数据：腾讯行情港股后复权/不复权日线 + 港交所 `ListOfSecurities`；`data/hk/` 本地缓存不提交。
+- 产物：`data/hk_family.json`（4 模型 × 4 档港元本金，近 3 个月）、`data/hk_mf_family.json`（3 多因子变体 × 4 档）与
+  `data/hk_eval_family.json`（5 模型 × 100 万港元，2024-01-02 起测试段 + 评测表）。
+- 重建：`$PY -m experiments.hk_models.backtest`、`$PY -m experiments.hk_models.multifactor` → `python3 -m paper_trader.runner export` → `scripts/deploy.sh --skip-export`。
+- 目前是研究快照，不参与每日 15:35 的 LLM 决策；重训后重新生成两个 JSON 即可更新分页。

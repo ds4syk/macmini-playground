@@ -359,6 +359,18 @@ def build_payload(conn: sqlite3.Connection) -> dict:
     }
 
 
+def _json_safe(value):
+    """Replace non-finite floats so the static payload is valid JSON."""
+    import math as _math
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, float):
+        return value if _math.isfinite(value) else 0.0
+    return value
+
+
 def write_export(conn: sqlite3.Connection, path) -> dict:
     from datetime import datetime as _dt
 
@@ -376,12 +388,20 @@ def write_export(conn: sqlite3.Connection, path) -> dict:
         multifactor = json.loads(multifactor_path.read_text(encoding="utf-8"))
         multifactor["generated_at"] = now
         families["multifactor"] = multifactor
-    families = {key: families[key] for key in ("local", "multifactor", "llm") if key in families}
+    for key, filename in (("hk", "hk_family.json"), ("hk-mf", "hk_mf_family.json"),
+                          ("hk-eval", "hk_eval_family.json")):
+        family_path = config.DATA_DIR / filename
+        if family_path.exists():
+            family = json.loads(family_path.read_text(encoding="utf-8"))
+            family["generated_at"] = now
+            families[key] = family
+    families = {key: families[key] for key in
+                ("local", "multifactor", "hk", "hk-mf", "hk-eval", "llm") if key in families}
     payload = {
         "generated_at": now,
         "default_family": "local" if "local" in families else next(iter(families)),
         "families": families,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    path.write_text(json.dumps(_json_safe(payload), ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return payload
