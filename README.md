@@ -1,10 +1,12 @@
-# 策略实验室 · 多模型 A 股日线纸面交易平台
+# 策略实验室 · 多市场多模型日线纸面交易平台
 
-个人用的策略验证平台。仪表盘有 **三个模型家族**，可随时切换：
+个人用的策略验证平台。仪表盘有 **五个模型家族**，可随时切换：
 
 1. **自训模型（默认）**：`~/labs/VLA/Share` 里的 5 条股票收益预测路线（GRU+Attention / TCN / Transformer / CNN / GDN+NTP），2016–2021 训练、2022–2023 验证、2024–2026-11-09 测试；5 日截面排序 + 低换手组合，每只模型各 1/3/5/10 万本金。
 2. **多因子 · 小市值（新增）**：全 A 股小市值池（流通市值最小 30%）上的 14 因子月度选股，LightGBM / 等权 / 纯小市值三个变体，2024–2026 测试区间回放，每只模型各 1/3/5/10 万本金。
-3. **LLM 模型（保留）**：DeepSeek V4.1 Flash / V4 Pro、GLM-5.3 / 5.3 Flash / 5.2，日线决策，每只模型各 1/3/5/10 万本金。
+3. **港股 · 自训模型（新增）**：同一套 4 条主路线（GRU+Attention / TCN / Transformer / CNN）在港股主板 285 只股票上重训；后复权日线、恒生指数市场特征、港股整手与汇丰 Trade25 费用；每只模型各 10/30/50/100 万港元本金。
+4. **港股 · 模型评测（新增）**：2024-01-02–2026-11-25 测试段的 Rank IC、ICIR、十分位差、Top30 超额、收益/回撤/夏普/换手/费用，附 0×/1×/2× 费用敏感性。
+5. **LLM 模型（保留）**：DeepSeek V4.1 Flash / V4 Pro、GLM-5.3 / 5.3 Flash / 5.2，日线决策，每只模型各 1/3/5/10 万本金。
 
 前端按同花顺 / 券商 App 的信息密度展示净值、持仓、成交、模型对比与决策，并部署到腾讯云，通过随机 token 私密路径访问。
 
@@ -15,11 +17,12 @@
 - 仪表盘：`https://paper.suyingke.chat/<token>/`（token 只保存在本机 `~/.config/paper-trader/deploy.env`，不进入仓库）
 - 自训模型：5 × 4 = 20 个账本；11-02 之后的新特征和分数已在本机补算，最后一次信号 2026-11-12
 - 多因子 · 小市值：3 × 4 = 12 个账本；2024-01-02 至 2026-11-12 季度调仓回放，最近一次调仓 2026-09-30（最新打分 2026-10-30）
+- 港股 · 自训模型：4 × 4 = 16 个账本（10/30/50/100 万港元），2026-08-25 至 2026-11-25 展示段；另有一个 2024-01-02–2026-11-25 的评测分页
 - LLM 模型：5 × 4 = 20 个账本；每个交易日 15:35 自动结算并生成次日决策，17:10 自动重试限额失败的模型；当前已到 2026-11-12
 - 本地：行情缓存、SQLite 账本、自训模型分数重放、决策调度、静态站构建都在 Mac mini 上
 - 云端：腾讯云 2C/3G 上的 Caddy 只做静态文件 + token 路径校验，不承载交易逻辑
 
-## 三个家族
+## 五个家族
 
 ### 自训模型（VLA/Share）
 
@@ -52,6 +55,23 @@
 - `python3 -m paper_trader.broker list` 看模型/本金；`orders --broker citic|ths` 生成调仓清单（CSV + Markdown），按目标权重复刻，保留模型现金比例；支持 13 个模型 × 4 档本金。
 - 不自动下单：信e投/同花顺散户模拟盘没有公开下单 API；QMT/PTrade 需客户经理开通量化权限（常见 30/50 万门槛、Windows）。
 - 用法、中信/同花顺入口、多模型账户安排和需要确认的事项见 [docs/BROKER.md](docs/BROKER.md)。
+
+### 港股 · 自训模型（新增）
+
+- 研究/复现目录：`experiments/hk_models/`；说明见 [experiments/hk_models/README.md](experiments/hk_models/README.md)。
+- 数据：港交所 `ListOfSecurities` 提供主板/HKD/每手股数，腾讯行情提供日线（后复权做特征、不复权做成交）。
+- 股票池：285 只当前港交所主板股票，2014-06 前有历史、近 500 日中位成交额 ≥ 300 万港元、总市值 ≥ 20 亿港元；排除复权序列无法表达公司行为的股票。
+- 口径：60 日窗口、25 维特征、5 日截面排序、Huber；训练 2016–2021 / 验证 2022–2023 / 测试 2024-01-02–2026-11-25。
+- 组合：5 日调仓、持有约 30 只、跌出前 50 才卖、每次最多换 5 只；港股整手、无涨跌停；费用按汇丰 Trade25（月费 25 港元；月成交 ≤25 万 0 佣金，超出 0.25% 最低 100 港元/单）+ 印花税/交易费/征费/结算费。
+- 本金：10 万 / 30 万 / 50 万 / 100 万港元。港股整手金额大，10 万档只能持有少量股票。
+- 局限：当前名单存在幸存者偏差；测试段已查看；港股 T+2、部分成交与 VCM 用日线近似。**不能与 A 股家族直接横比。**
+
+### 港股 · 模型评测（新增）
+
+- 4 条主路线在 2024-01-02–2026-11-25 测试段的统一评测，另加股票池等权与恒生指数对照。
+- 指标：Rank IC / ICIR、十分位多空差、Top30 超额、区间与年化收益、最大回撤、夏普、年换手、年费用。
+- 费用敏感性：GRU+Attention 在 0× / 1× / 2× 费用下的收益与回撤，用来区分信号与成本。
+- 详细数字与训练日志见 [docs/HK.md](docs/HK.md)。
 
 ### LLM 模型（保留）
 
@@ -99,6 +119,7 @@ Mac mini (本地)
 │                              ▲                               │
 │  VLA/Share 分数矩阵 ──► local_models.py ──► local_family.json  │
 │  多因子小市值分数 ──► multifactor.py ──► multifactor_family.json│
+│  港股分数矩阵 ──► experiments/hk_models ──► hk_family.json     │
 │                              │                               │
 │  launchd 15:35 ──► runner.py ─┴─► engine.py（LLM 日线撮合）  │
 │                       │                                      │
@@ -116,7 +137,7 @@ Tencent Cloud (2C/3G)          ▼
 
 ## 本地运行
 
-要求：macOS + Python 3.9+；自训模型重放需要 numpy（系统 Python 已带），不需要 torch；LLM 模型调用现有 DeepSeek / 智谱 API。
+要求：macOS + Python 3.9+；自训模型重放需要 numpy（系统 Python 已带），不需要 torch；港股训练用 `~/labs/VLA/Share/v2/.venv` 的 torch 2.15 + MPS；LLM 模型调用现有 DeepSeek / 智谱 API。
 
 1. 私密配置（不要提交）：
 
@@ -141,22 +162,33 @@ python3 -m paper_trader.local_models        # 生成 data/local_family.json
 python3 -m paper_trader.multifactor         # 生成 data/multifactor_family.json
 ```
 
-4. LLM 回放（46 个交易日 × 5 个模型）：
+4. 港股 · 自训模型（需要先跑研究流水线，见 `experiments/hk_models/README.md`）：
+
+```bash
+PY=~/labs/VLA/Share/v2/.venv/bin/python
+$PY -m experiments.hk_models.fetch all      # 名单 + 日线 + 指数 + universe.csv
+$PY -m experiments.hk_models.prepare        # data/hk/panel.npz
+$PY -m experiments.hk_models.train          # 4 主路线（GRU/TCN 3 种子，其余 1 种子）
+$PY -m experiments.hk_models.backtest       # data/hk_family.json / hk_eval_family.json
+$PY -m experiments.hk_models.report         # results/RESULTS.md 与 CSV
+```
+
+5. LLM 回放（46 个交易日 × 5 个模型）：
 
 ```bash
 python3 -m paper_trader.runner fetch         # 刷新行情（慢，可重试）
 python3 -m paper_trader.runner replay --start 2026-09-01 --end 2026-11-11
-python3 -m paper_trader.runner export        # 合并三个家族，生成 web/data.json
+python3 -m paper_trader.runner export        # 合并五个家族，生成 web/data.json
 python3 -m paper_trader.runner serve --port 8899
 ```
 
-5. 每日收盘后：
+6. 每日收盘后：
 
 ```bash
 python3 -m paper_trader.runner daily         # LLM 家族结算 + 生成次日决策
 python3 -m paper_trader.runner retry         # 重试限额失败的模型
 python3 -m paper_trader.local_models --marks # 自训家族持仓估值延续
-python3 -m paper_trader.runner export        # 合并三个家族，生成 web/data.json
+python3 -m paper_trader.runner export        # 合并五个家族，生成 web/data.json
 scripts/deploy.sh --skip-export
 ```
 
@@ -190,24 +222,26 @@ paper_trader/
   local_models.py  自训模型分数重放 → 自训家族 JSON
   multifactor.py   小市值多因子分数重放 → 多因子家族 JSON
   runner.py        fetch / replay / daily / export / serve
-  export.py        合并三个家族，生成前端 data.json
-experiments/       多因子小市值的下载、准备、因子、训练与回测代码
-web/               静态仪表盘（默认自训模型，可切多因子 / LLM）
+  export.py        合并五个家族，生成前端 data.json
+experiments/       多因子小市值 + 港股模型的下载、准备、训练与回测代码
+web/               静态仪表盘（默认 A 股自训模型，可切多因子 / 港股 / 港股评测 / LLM）
 scripts/           deploy.sh / daily.sh / install_scheduler.sh / update_caddy.py / bench_local_models.py
-tests/             engine / 费用 / 权重归一化单元测试
+tests/             engine / 费用 / 权重归一化 / 港股整手与费用单元测试
 docs/screenshots/  before.png、after-*.png、local-*.png、llm-*.png
-docs/RESULTS.md    两个家族的回放结果快照
+docs/RESULTS.md    A 股家族的回放结果快照
 docs/LOCAL_INFERENCE.md 自训模型本地推理实测
+docs/HK.md         港股模型线结果、口径与局限
 docs/OPERATIONS.md 部署与运维
 ```
 
 ## 验证
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests -v                  # 生产环境（stdlib + numpy）
+~/labs/VLA/Share/v2/.venv/bin/python -m unittest discover -s tests -v  # 含港股回测不变量
 ```
 
-覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
+覆盖：费用、权重裁剪/归一化/未知代码、买入与收盘估值、同日 T+1 卖出保护、多因子账户的持仓/现金/整手不变量，以及港股 Trade25 费用、整手取整和回测账户不变量。前端用 Playwright 在 1440×900 与 390px 下检查无 console 错误、无横向溢出。
 
 ## 结果快照
 
@@ -216,14 +250,16 @@ python3 -m unittest discover -s tests -v
 - 自训模型 20 个账本，2026-09-01 → 2026-11-12：合计 -0.28%，沪深 300 同期约 -12.31%；领先 GRU+Attention 10 万 +2.38%；新补算的 11-02→11-12 信号已进入回放。
 - LLM 模型 20 个账本，2026-09-01 → 2026-11-12：合计 +1.52%，沪深 300 同期 -12.31%；领先 GLM-5.3 Flash 3 万 +3.06%。
 - 多因子 · 小市值 2024-01-02 → 2026-11-12：测试 Rank IC 0.096（LightGBM）、0.084（等权）、0.030（纯小市值）；季度调仓 + 按本金自适应持仓数后，3 万账户 +100.04%（回撤 -30.8%、期末现金 5.6%），10 万 +56.76%，同期全市场等权 +50.25%；详见 [docs/RESULTS.md](docs/RESULTS.md)。
-- 三个家族口径不同，仅作各自链路验证。
+- 港股自训模型 2024-01-02 → 2026-11-25：测试 Rank IC、组合收益与费用敏感性见 [docs/HK.md](docs/HK.md)；当前名单存在幸存者偏差，不能与 A 股家族直接横比。
+- 五个家族口径不同，仅作各自链路验证。
 
 ## 已知局限
 
 - 自训模型测试区间 2024–2026 已查看，不是严格前向；分数矩阵最后一次信号 2026-10-30。
 - 多因子小市值没有退市股票，存在幸存者偏差；没有成交量和开盘价，用收盘执行；持仓数/调仓频率在 2022–2023 验证集上选择，2024–2026 只做复核。
 - LLM 回放存在预训练知识泄漏风险，不能作为干净的超额收益证据。
-- 前复权/原始价格近似成交；未模拟滑点、盘口深度、涨跌停排队；自训模型不处理分红送转。
+- 前复权/原始价格近似成交；未模拟滑点、盘口深度、涨跌停排队；A 股自训模型不处理分红送转。
+- 港股用后复权序列做特征/标签、不复权序列做成交估值；当前港交所名单有幸存者偏差，T+2/VCM/部分成交未逐笔模拟。
 - 单一数据源（腾讯行情 / 本地 panel），未做多源交叉校验。
 - 自训模型 1 万/3 万本金在 30 只目标下大量现金拖累；这是真实的可执行性约束，不是 bug。
 - 本轮 Kimi 前端优化因 Sensenova 上游持续返回 HTTP 429（多次重试）未执行；界面已用 Playwright 做桌面 1440px 与移动 390px 自检（无 console 错误、无横向溢出）。

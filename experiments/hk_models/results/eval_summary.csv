@@ -1,0 +1,7 @@
+key,name,type,mean_ic,icir,decile,top30,ret_pct,annualized,max_drawdown,sharpe,annualized_turnover,annualized_cost,params
+hk-attn-gru,GRU + Attention,model,0.0124,0.084,-0.0013,0.0002,-8.3,-3.01,-33.08,-0.11,12.87,4.72,48962
+hk-tcn,TCN,model,0.0403,0.19,-0.0028,-0.0011,18.57,6.2,-13.59,0.56,13.82,5.04,95745
+hk-transformer,Transformer,model,0.0099,0.065,-0.0001,0.0002,33.16,10.64,-19.99,0.88,5.49,1.62,74689
+hk-cnn,CNN,model,0.0135,0.079,-0.0004,0.0009,57.43,17.37,-21.05,0.86,8.33,2.59,32193
+equal_weight,股票池等权,benchmark,,,,,53.99,16.46,-25.19,0.83,0.0,0.0,0
+hsi,恒生指数,benchmark,,,,,30.84,9.95,-21.46,0.53,0.0,0.0,0

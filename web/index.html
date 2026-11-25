@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>策略实验室 · 多模型日线纸面交易</title>
+<title>策略实验室 · 多市场多模型日线纸面交易</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c62828'/%3E%3Ctext x='16' y='22' font-size='18' text-anchor='middle' fill='white' font-family='PingFang SC,sans-serif'%3E%E7%AD%96%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="./assets/styles.css">
 </head>
@@ -14,7 +14,7 @@
     <span class="brand-mark">策</span>
     <div class="brand-text">
       <h1>策略实验室</h1>
-      <p>多模型 · 多本金 · A股日线纸面交易</p>
+      <p>多模型 · 多市场 · 日线纸面交易</p>
     </div>
   </div>
   <div class="top-meta">
@@ -37,6 +37,8 @@
   <section class="kpis" id="kpis" aria-label="账户概览"></section>
 
   <section class="card family-compare" id="family-compare" aria-label="家族对比"></section>
+
+  <section class="card eval-card" id="eval-card" aria-label="港股模型评测" style="display:none"></section>
 
   <section class="grid-main">
     <div class="card chart-card">
@@ -74,7 +76,7 @@
       <div class="card-head">
         <div>
           <h2>模型对比</h2>
-          <p>同一模型在 1万 / 3万 / 5万 / 10万 四档本金下的表现</p>
+          <p>同一模型在不同本金档位下的表现</p>
         </div>
       </div>
       <div class="model-table" id="model-table"></div>
@@ -136,7 +138,7 @@
       <div class="card-head">
         <div>
           <h2>大盘 K 线</h2>
-          <p>上证指数 · 近 60 个交易日</p>
+          <p id="candle-sub">上证指数 · 近 60 个交易日</p>
         </div>
         <span class="pill neutral">日线</span>
       </div>
@@ -155,7 +157,7 @@
   </section>
 
   <footer>
-    <p>模拟盘，仅供策略研究与模型对比，不构成任何投资建议。行情为腾讯行情前复权日线，成交按下一交易日开盘价回放，已计入佣金、印花税与过户费。</p>
+    <p id="footer-note">模拟盘，仅供策略研究与模型对比，不构成任何投资建议。行情为腾讯行情前复权日线，成交按下一交易日开盘价回放，已计入佣金、印花税与过户费。</p>
     <p class="footer-sub" id="family-note-footer">--</p>
     <p class="footer-sub" id="footer-sub">--</p>
   </footer>

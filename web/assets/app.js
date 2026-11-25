@@ -16,9 +16,11 @@
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
     }[ch]));
 
+  const currencySymbol = () =>
+    (state.data && state.data.meta && state.data.meta.currency_symbol) || "¥";
   const fmtMoney = (v) =>
-    (v < 0 ? "-" : "") + "¥" + Math.abs(Number(v || 0)).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
-  const fmtSignedMoney = (v) => (v > 0 ? "+" : v < 0 ? "-" : "") + "¥" + Math.abs(Number(v || 0)).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+    (v < 0 ? "-" : "") + currencySymbol() + Math.abs(Number(v || 0)).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
+  const fmtSignedMoney = (v) => (v > 0 ? "+" : v < 0 ? "-" : "") + currencySymbol() + Math.abs(Number(v || 0)).toLocaleString("zh-CN", { maximumFractionDigits: 0 });
   const fmtPct = (v, digits = 2) => (v > 0 ? "+" : "") + Number(v || 0).toFixed(digits) + "%";
   const signClass = (v) => (v > 0.0001 ? "up" : v < -0.0001 ? "down" : "flat");
   const shortDate = (d) => String(d || "").slice(5).replace("-", "/");
@@ -69,6 +71,8 @@
     $("#status-label").textContent = d.meta.status_label || (quant ? "自训模型 · 5日调仓" : "LLM 模型 · 日线回放");
     $("#footer-sub").textContent =
       `生成于 ${d.generated_at} · ${d.models.length} 个模型 · ${d.portfolios.length} 个组合 · ${d.trade_days} 个交易日 · 起始 ${d.meta.start}`;
+    const footerNote = document.getElementById("footer-note");
+    if (footerNote) footerNote.textContent = d.meta.footer_note || "模拟盘，仅供策略研究与模型对比，不构成任何投资建议。行情为腾讯行情前复权日线，成交按下一交易日开盘价回放，已计入佣金、印花税与过户费。";
     $("#family-note-footer").textContent =
       `${d.meta.method || ""} ｜ ${d.meta.fee_note || ""} ｜ ${p.leakage || ""}`;
     const note = quant
@@ -124,7 +128,7 @@
       <div class="kpi">
         <div class="kpi-label">运行交易日</div>
         <div class="kpi-value">${d.trade_days}<small>天</small></div>
-        <div class="kpi-sub">${d.models.length} 个模型 × 4 档本金 · ${esc(d.meta.kpi_unit || (quant ? "5 日调仓" : "日线回放"))}</div>
+        <div class="kpi-sub">${d.models.length} 个模型 × ${Object.keys(d.meta.capital_labels || {}).length} 档本金 · ${esc(d.meta.kpi_unit || (quant ? "5 日调仓" : "日线回放"))}</div>
       </div>`;
   }
 
@@ -135,8 +139,10 @@
     const rows = [];
     for (const [key, family] of Object.entries(state.families || {})) {
       let best = null;
+      const capitals = Object.keys((family.meta || {}).capital_labels || {}).map(Number);
+      const target = capitals.includes(30000) ? 30000 : (capitals.includes(100000) ? 100000 : capitals[0]);
       for (const portfolio of family.portfolios || []) {
-        if (Number(portfolio.capital) !== 30000) continue;
+        if (Number(portfolio.capital) !== target) continue;
         const series = (portfolio.series || []).filter((point) => point.date >= windowStart);
         if (series.length < 2) continue;
         const ret = (series[series.length - 1].total / series[0].total - 1) * 100;
@@ -176,7 +182,7 @@
       <div class="card-head">
         <div>
           <h2>家族对比 · ${windowStart} 起</h2>
-          <p>统一 3 万本金与区间；各家族标的池、调仓频率与费用口径不同，收益不可直接比较</p>
+          <p>各家族代表本金与同一区间；标的池、币种、调仓频率与费用口径不同，收益不可直接比较</p>
         </div>
       </div>
       <table class="compare-table">
@@ -237,7 +243,7 @@
       el.addEventListener("click", toggle);
       el.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
     });
-    const cap = state.data.meta.capital_labels[String(state.capital)];
+    const cap = state.data.meta.capital_labels[String(state.capital)] || `${state.capital}`;
     const method = state.data.meta.chart_method || (familyKind() === "llm" ? "09/01 起回放" : "5 日调仓");
     $("#chart-sub").textContent = state.mode === "ret"
       ? `${state.data.label} · ${cap} 本金收益率对比 · ${method}（点击图例可隐藏）`
@@ -381,7 +387,7 @@
     }).join("");
     const metricLabel = familyKind() === "llm" ? "置信度" : (state.data.meta.metric_label || "Rank IC");
     $("#model-table").innerHTML = `
-      <div class="model-row head"><div>模型</div><div class="num">四档平均</div><div class="num">最佳本金</div><div class="num">交易</div><div class="num">${metricLabel}</div><div class="num">决策日</div></div>
+      <div class="model-row head"><div>模型</div><div class="num">各档平均</div><div class="num">最佳本金</div><div class="num">交易</div><div class="num">${metricLabel}</div><div class="num">决策日</div></div>
       ${rows}`;
   }
 
@@ -509,6 +515,8 @@
   function renderCandles() {
     const c = state.data.candles;
     if (!c || !c.dates.length) return;
+    const candleSub = document.getElementById("candle-sub");
+    if (candleSub) candleSub.textContent = `${state.data.meta.benchmark_label || "上证指数"} · 近 60 个交易日`;
     const dates = c.dates.map(shortDate);
     const values = c.values;
     const closes = values.map((v) => v[1]);
@@ -588,9 +596,62 @@
     state.allocChart = echarts.init($("#alloc-chart"), null, { renderer: "canvas" });
   }
 
+  function renderEvaluation() {
+    const card = document.getElementById("eval-card");
+    if (!card) return;
+    const evaluation = state.data.eval;
+    if (!evaluation) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "";
+    const rows = evaluation.rows || [];
+    const cells = (row) => `
+      <tr class="${row.type === "benchmark" ? "benchmark-row" : ""}">
+        <td class="name">${esc(row.name)}</td>
+        <td class="num">${row.mean_ic == null ? "-" : Number(row.mean_ic).toFixed(3)}</td>
+        <td class="num">${row.icir == null ? "-" : Number(row.icir).toFixed(2)}</td>
+        <td class="num">${row.decile == null ? "-" : (Number(row.decile) * 100).toFixed(2) + "%"}</td>
+        <td class="num">${row.top30 == null ? "-" : (Number(row.top30) * 100).toFixed(2) + "%"}</td>
+        <td class="num ${signClass(row.ret_pct)}">${fmtPct(row.ret_pct)}</td>
+        <td class="num ${signClass(row.annualized)}">${fmtPct(row.annualized)}</td>
+        <td class="num ${signClass(row.max_drawdown)}">${fmtPct(row.max_drawdown)}</td>
+        <td class="num">${Number(row.sharpe || 0).toFixed(2)}</td>
+        <td class="num">${Number(row.annualized_turnover || 0).toFixed(1)}x</td>
+        <td class="num">${fmtPct(row.annualized_cost)}</td>
+      </tr>`;
+    const sensitivity = (evaluation.cost_sensitivity || []).map((row) => `
+      <tr><td>${esc(row.label)}</td><td class="num">${fmtPct(row.ret_pct)}</td>
+      <td class="num">${fmtPct(row.annualized)}</td><td class="num">${fmtPct(row.max_drawdown)}</td>
+      <td class="num">${Number(row.sharpe || 0).toFixed(2)}</td><td class="num">${fmtPct(row.annualized_cost)}</td></tr>`).join("");
+    card.innerHTML = `
+      <div class="card-head">
+        <div>
+          <h2>模型评测 · ${esc(evaluation.window ? evaluation.window[0] + " → " + evaluation.window[1] : "")}</h2>
+          <p>${esc(evaluation.label || "")} · 统一 HKD 100 万本金 · Rank IC 越接近 0 表示越无排序信息</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="compare-table eval-table">
+          <thead><tr><th>模型</th><th class="num">Rank IC</th><th class="num">ICIR</th><th class="num">十分位差</th><th class="num">Top30 超额</th><th class="num">区间收益</th><th class="num">年化</th><th class="num">最大回撤</th><th class="num">夏普</th><th class="num">年换手</th><th class="num">年费用</th></tr></thead>
+          <tbody>${rows.map(cells).join("")}</tbody>
+        </table>
+      </div>
+      <div class="eval-notes">
+        ${(evaluation.notes || []).map((note) => `<p>${esc(note)}</p>`).join("")}
+      </div>
+      <div class="subhead">费用敏感性 · GRU+Attention · 100 万本金</div>
+      <div class="table-wrap">
+        <table class="compare-table">
+          <thead><tr><th>情景</th><th class="num">区间收益</th><th class="num">年化</th><th class="num">最大回撤</th><th class="num">夏普</th><th class="num">年费用</th></tr></thead>
+          <tbody>${sensitivity}</tbody>
+        </table>
+      </div>`;
+  }
+
   function renderFamilyTabs() {
     const keys = Object.keys(state.families);
-    const order = ["local", "multifactor", "llm"].filter((key) => keys.includes(key));
+    const order = ["local", "multifactor", "hk", "hk-eval", "llm"].filter((key) => keys.includes(key));
     for (const key of keys) if (!order.includes(key)) order.push(key);
     $("#family-tabs").innerHTML = order.map((key) => {
       const family = state.families[key];
@@ -610,6 +671,7 @@
     state.models = new Set(state.data.models.map((m) => m.id));
     choosePortfolio();
     renderHeader();
+    renderEvaluation();
     renderTicker();
     renderKpis();
     renderFamilyCompare();
@@ -629,7 +691,8 @@
     if (!state.families[key] || key === state.family) return;
     state.family = key;
     state.data = state.families[key];
-    state.capital = 100000;
+    const capitals = Object.keys((state.data.meta || {}).capital_labels || {}).map(Number).sort((a, b) => a - b);
+    state.capital = capitals.includes(100000) ? 100000 : (capitals[0] || 100000);
     state.mode = "ret";
     renderFamilyTabs();
     renderDashboard();
@@ -650,6 +713,8 @@
         ? requested
         : (payload.default_family && state.families[payload.default_family] ? payload.default_family : Object.keys(state.families)[0]);
       state.data = state.families[state.family];
+      const capitals = Object.keys((state.data.meta || {}).capital_labels || {}).map(Number).sort((a, b) => a - b);
+      state.capital = capitals.includes(100000) ? 100000 : (capitals[0] || 100000);
     } catch (error) {
       $("#kpis").innerHTML = `<div class="card" style="grid-column:1/-1;padding:24px">数据加载失败：${esc(error.message)}。请先运行 <code>python3 -m paper_trader.runner export</code>。</div>`;
       return;
