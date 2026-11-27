@@ -1,0 +1,651 @@
+{
+  "generatedAt": "2026-11-27T19:43:29+08:00",
+  "start": "2026-08-29T09:01:23.464000+08:00",
+  "end": "2026-11-27T19:43:20.203000+08:00",
+  "sessions": 214,
+  "sessionLogs": 258,
+  "requests": 38183,
+  "usage": {
+    "input": 45920144,
+    "output": 30843491,
+    "cacheRead": 10434545280,
+    "cacheWrite": 232702,
+    "total": 10511541617,
+    "requests": 38183
+  },
+  "cacheHitPct": 99.56185014555895,
+  "costCny": 472.03,
+  "listPriceCny": 121.5,
+  "machines": [
+    {
+      "label": "local",
+      "name": "本机 macmini",
+      "sessions": 87,
+      "sessionLogs": 102,
+      "usage": {
+        "input": 22364451,
+        "output": 13248154,
+        "cacheRead": 4804361408,
+        "cacheWrite": 0,
+        "total": 4839974013,
+        "requests": 17277
+      },
+      "costCny": 199.51,
+      "byMonth": {
+        "2026-08": {
+          "input": 1701586,
+          "output": 1069517,
+          "cacheRead": 226569600,
+          "cacheWrite": 0,
+          "total": 229340703,
+          "requests": 1243
+        },
+        "2026-10": {
+          "input": 9744060,
+          "output": 5582991,
+          "cacheRead": 1684798208,
+          "cacheWrite": 0,
+          "total": 1700125259,
+          "requests": 5873
+        },
+        "2026-11": {
+          "input": 10918805,
+          "output": 6595646,
+          "cacheRead": 2892993600,
+          "cacheWrite": 0,
+          "total": 2910508051,
+          "requests": 10161
+        }
+      }
+    },
+    {
+      "label": "lab",
+      "name": "lab server",
+      "sessions": 127,
+      "sessionLogs": 156,
+      "usage": {
+        "input": 23555693,
+        "output": 17595337,
+        "cacheRead": 5630183872,
+        "cacheWrite": 232702,
+        "total": 5671567604,
+        "requests": 20906
+      },
+      "costCny": 272.52,
+      "byMonth": {
+        "2026-10": {
+          "input": 3417785,
+          "output": 2701809,
+          "cacheRead": 552171648,
+          "cacheWrite": 0,
+          "total": 558291242,
+          "requests": 2601
+        },
+        "2026-11": {
+          "input": 20137908,
+          "output": 14893528,
+          "cacheRead": 5078012224,
+          "cacheWrite": 232702,
+          "total": 5113276362,
+          "requests": 18305
+        }
+      }
+    }
+  ],
+  "models": [
+    {
+      "provider": "deepseek-official",
+      "model": "deepseek-flash",
+      "usage": {
+        "input": 44089693,
+        "output": 29606338,
+        "cacheRead": 10217027712,
+        "cacheWrite": 0,
+        "total": 10290723743,
+        "requests": 36865
+      },
+      "byMachine": {
+        "lab": {
+          "input": 23518217,
+          "output": 17568439,
+          "cacheRead": 5627284096,
+          "cacheWrite": 0,
+          "total": 5668370752,
+          "requests": 20831
+        },
+        "local": {
+          "input": 20571476,
+          "output": 12037899,
+          "cacheRead": 4589743616,
+          "cacheWrite": 0,
+          "total": 4622352991,
+          "requests": 16034
+        }
+      },
+      "costCny": 450.77,
+      "priced": true,
+      "priceSource": "DeepSeek 官方价目",
+      "listPriceUsd": null,
+      "listPriceSource": ""
+    },
+    {
+      "provider": "opencode-go",
+      "model": "deepseek-v4-flash",
+      "usage": {
+        "input": 767274,
+        "output": 680849,
+        "cacheRead": 161628160,
+        "cacheWrite": 0,
+        "total": 163076283,
+        "requests": 683
+      },
+      "byMachine": {
+        "local": {
+          "input": 767274,
+          "output": 680849,
+          "cacheRead": 161628160,
+          "cacheWrite": 0,
+          "total": 163076283,
+          "requests": 683
+        }
+      },
+      "costCny": 7.16,
+      "priced": true,
+      "priceSource": "models.dev · opencode-go（deepseek-v4.1-flash）",
+      "listPriceUsd": null,
+      "listPriceSource": ""
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.3",
+      "usage": {
+        "input": 533838,
+        "output": 278668,
+        "cacheRead": 42046912,
+        "cacheWrite": 0,
+        "total": 42859418,
+        "requests": 409
+      },
+      "byMachine": {
+        "lab": {
+          "input": 9574,
+          "output": 3,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 9577,
+          "requests": 1
+        },
+        "local": {
+          "input": 524264,
+          "output": 278665,
+          "cacheRead": 42046912,
+          "cacheWrite": 0,
+          "total": 42849841,
+          "requests": 408
+        }
+      },
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 12.9057,
+      "listPriceSource": "zai"
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.4",
+      "usage": {
+        "input": 362744,
+        "output": 213194,
+        "cacheRead": 9307904,
+        "cacheWrite": 0,
+        "total": 9883842,
+        "requests": 78
+      },
+      "byMachine": {
+        "lab": {
+          "input": 9694,
+          "output": 60,
+          "cacheRead": 9536,
+          "cacheWrite": 0,
+          "total": 19290,
+          "requests": 2
+        },
+        "local": {
+          "input": 353050,
+          "output": 213134,
+          "cacheRead": 9298368,
+          "cacheWrite": 0,
+          "total": 9864552,
+          "requests": 76
+        }
+      },
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 4.1153,
+      "listPriceSource": "tencent-token-plan"
+    },
+    {
+      "provider": "moonshotai-cn",
+      "model": "kimi-k3",
+      "usage": {
+        "input": 8633,
+        "output": 26832,
+        "cacheRead": 2890240,
+        "cacheWrite": 232702,
+        "total": 3158407,
+        "requests": 71
+      },
+      "byMachine": {
+        "lab": {
+          "input": 8633,
+          "output": 26832,
+          "cacheRead": 2890240,
+          "cacheWrite": 232702,
+          "total": 3158407,
+          "requests": 71
+        }
+      },
+      "costCny": 14.1,
+      "priced": true,
+      "priceSource": "models.dev · moonshotai-cn",
+      "listPriceUsd": null,
+      "listPriceSource": ""
+    },
+    {
+      "provider": "zai-coding-cn",
+      "model": "glm-5.3-flash",
+      "usage": {
+        "input": 157962,
+        "output": 37610,
+        "cacheRead": 1644352,
+        "cacheWrite": 0,
+        "total": 1839924,
+        "requests": 77
+      },
+      "byMachine": {
+        "lab": {
+          "input": 9575,
+          "output": 3,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 9578,
+          "requests": 1
+        },
+        "local": {
+          "input": 148387,
+          "output": 37607,
+          "cacheRead": 1644352,
+          "cacheWrite": 0,
+          "total": 1830346,
+          "requests": 76
+        }
+      },
+      "costCny": 0.0,
+      "priced": true,
+      "priceSource": "models.dev · zhipuai-coding-plan",
+      "listPriceUsd": 0.0918,
+      "listPriceSource": "zai"
+    }
+  ],
+  "monthly": [
+    {
+      "month": "2026-08",
+      "total": 229340703,
+      "requests": 1243,
+      "machines": {
+        "local": 229340703,
+        "lab": 0
+      }
+    },
+    {
+      "month": "2026-10",
+      "total": 2258416501,
+      "requests": 8474,
+      "machines": {
+        "local": 1700125259,
+        "lab": 558291242
+      }
+    },
+    {
+      "month": "2026-11",
+      "total": 8023784413,
+      "requests": 28466,
+      "machines": {
+        "local": 2910508051,
+        "lab": 5113276362
+      }
+    }
+  ],
+  "daily": [
+    {
+      "date": "2026-08-29",
+      "local": 229340703,
+      "lab": 0,
+      "total": 229340703,
+      "requests": 1243
+    },
+    {
+      "date": "2026-10-13",
+      "local": 3375257,
+      "lab": 0,
+      "total": 3375257,
+      "requests": 72
+    },
+    {
+      "date": "2026-10-16",
+      "local": 249983423,
+      "lab": 0,
+      "total": 249983423,
+      "requests": 706
+    },
+    {
+      "date": "2026-10-17",
+      "local": 355258525,
+      "lab": 0,
+      "total": 355258525,
+      "requests": 880
+    },
+    {
+      "date": "2026-10-18",
+      "local": 70876632,
+      "lab": 0,
+      "total": 70876632,
+      "requests": 471
+    },
+    {
+      "date": "2026-10-19",
+      "local": 248358549,
+      "lab": 0,
+      "total": 248358549,
+      "requests": 651
+    },
+    {
+      "date": "2026-10-20",
+      "local": 80820360,
+      "lab": 0,
+      "total": 80820360,
+      "requests": 208
+    },
+    {
+      "date": "2026-10-21",
+      "local": 267520012,
+      "lab": 52738781,
+      "total": 320258793,
+      "requests": 1746
+    },
+    {
+      "date": "2026-10-22",
+      "local": 95276378,
+      "lab": 0,
+      "total": 95276378,
+      "requests": 183
+    },
+    {
+      "date": "2026-10-23",
+      "local": 9988455,
+      "lab": 0,
+      "total": 9988455,
+      "requests": 20
+    },
+    {
+      "date": "2026-10-25",
+      "local": 0,
+      "lab": 398390208,
+      "total": 398390208,
+      "requests": 1928
+    },
+    {
+      "date": "2026-10-26",
+      "local": 13187616,
+      "lab": 0,
+      "total": 13187616,
+      "requests": 20
+    },
+    {
+      "date": "2026-10-27",
+      "local": 3336913,
+      "lab": 0,
+      "total": 3336913,
+      "requests": 5
+    },
+    {
+      "date": "2026-10-28",
+      "local": 4034952,
+      "lab": 0,
+      "total": 4034952,
+      "requests": 6
+    },
+    {
+      "date": "2026-10-29",
+      "local": 5845783,
+      "lab": 0,
+      "total": 5845783,
+      "requests": 9
+    },
+    {
+      "date": "2026-10-30",
+      "local": 111441519,
+      "lab": 0,
+      "total": 111441519,
+      "requests": 663
+    },
+    {
+      "date": "2026-10-31",
+      "local": 180820885,
+      "lab": 107162253,
+      "total": 287983138,
+      "requests": 906
+    },
+    {
+      "date": "2026-11-01",
+      "local": 8587971,
+      "lab": 215468501,
+      "total": 224056472,
+      "requests": 1313
+    },
+    {
+      "date": "2026-11-02",
+      "local": 13759624,
+      "lab": 309289745,
+      "total": 323049369,
+      "requests": 1346
+    },
+    {
+      "date": "2026-11-03",
+      "local": 432441556,
+      "lab": 1211473660,
+      "total": 1643915216,
+      "requests": 5273
+    },
+    {
+      "date": "2026-11-04",
+      "local": 44423781,
+      "lab": 22866539,
+      "total": 67290320,
+      "requests": 421
+    },
+    {
+      "date": "2026-11-05",
+      "local": 44268005,
+      "lab": 15708681,
+      "total": 59976686,
+      "requests": 356
+    },
+    {
+      "date": "2026-11-09",
+      "local": 0,
+      "lab": 358901440,
+      "total": 358901440,
+      "requests": 1700
+    },
+    {
+      "date": "2026-11-10",
+      "local": 138045340,
+      "lab": 52677344,
+      "total": 190722684,
+      "requests": 970
+    },
+    {
+      "date": "2026-11-11",
+      "local": 317325183,
+      "lab": 258316416,
+      "total": 575641599,
+      "requests": 2516
+    },
+    {
+      "date": "2026-11-12",
+      "local": 827546552,
+      "lab": 234012700,
+      "total": 1061559252,
+      "requests": 3151
+    },
+    {
+      "date": "2026-11-13",
+      "local": 75415525,
+      "lab": 28134369,
+      "total": 103549894,
+      "requests": 243
+    },
+    {
+      "date": "2026-11-15",
+      "local": 73181549,
+      "lab": 0,
+      "total": 73181549,
+      "requests": 354
+    },
+    {
+      "date": "2026-11-17",
+      "local": 98199772,
+      "lab": 777289160,
+      "total": 875488932,
+      "requests": 2819
+    },
+    {
+      "date": "2026-11-18",
+      "local": 292518045,
+      "lab": 0,
+      "total": 292518045,
+      "requests": 908
+    },
+    {
+      "date": "2026-11-19",
+      "local": 36708828,
+      "lab": 0,
+      "total": 36708828,
+      "requests": 81
+    },
+    {
+      "date": "2026-11-21",
+      "local": 0,
+      "lab": 530002227,
+      "total": 530002227,
+      "requests": 1680
+    },
+    {
+      "date": "2026-11-24",
+      "local": 0,
+      "lab": 346891235,
+      "total": 346891235,
+      "requests": 1040
+    },
+    {
+      "date": "2026-11-25",
+      "local": 454895994,
+      "lab": 329513615,
+      "total": 784409609,
+      "requests": 2382
+    },
+    {
+      "date": "2026-11-26",
+      "local": 27900495,
+      "lab": 54462978,
+      "total": 82363473,
+      "requests": 384
+    },
+    {
+      "date": "2026-11-27",
+      "local": 25289831,
+      "lab": 368267752,
+      "total": 393557583,
+      "requests": 1529
+    }
+  ],
+  "topDays": [
+    {
+      "date": "2026-11-03",
+      "local": 432441556,
+      "lab": 1211473660,
+      "total": 1643915216,
+      "requests": 5273
+    },
+    {
+      "date": "2026-11-12",
+      "local": 827546552,
+      "lab": 234012700,
+      "total": 1061559252,
+      "requests": 3151
+    },
+    {
+      "date": "2026-11-17",
+      "local": 98199772,
+      "lab": 777289160,
+      "total": 875488932,
+      "requests": 2819
+    },
+    {
+      "date": "2026-11-25",
+      "local": 454895994,
+      "lab": 329513615,
+      "total": 784409609,
+      "requests": 2382
+    },
+    {
+      "date": "2026-11-11",
+      "local": 317325183,
+      "lab": 258316416,
+      "total": 575641599,
+      "requests": 2516
+    },
+    {
+      "date": "2026-11-21",
+      "local": 0,
+      "lab": 530002227,
+      "total": 530002227,
+      "requests": 1680
+    },
+    {
+      "date": "2026-10-25",
+      "local": 0,
+      "lab": 398390208,
+      "total": 398390208,
+      "requests": 1928
+    },
+    {
+      "date": "2026-11-27",
+      "local": 25289831,
+      "lab": 368267752,
+      "total": 393557583,
+      "requests": 1529
+    },
+    {
+      "date": "2026-11-09",
+      "local": 0,
+      "lab": 358901440,
+      "total": 358901440,
+      "requests": 1700
+    },
+    {
+      "date": "2026-10-17",
+      "local": 355258525,
+      "lab": 0,
+      "total": 355258525,
+      "requests": 880
+    }
+  ],
+  "pricing": {
+    "modelsDevFetchedAt": "2026-11-27T19:40:20+08:00",
+    "usdCny": 7.1,
+    "deepseek": "DeepSeek 官方 CNY 价目，逐请求高峰/空闲"
+  }
+}
